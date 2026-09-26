@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { category } from '../../lib/categories';
 import type { Issue, Status } from '../../lib/types';
 import { getIssue } from './api';
+import { FixedClip } from './FixedClip';
 import { loadMine, type MyReport } from './mine';
 import { Button } from './ui';
 import { C, F, T } from './theme';
@@ -96,6 +97,7 @@ export function MyReports({ visible, onClose }: { visible: boolean; onClose: () 
                       </View>
                     ))}
                   </View>
+                  {status === 'resolved' && <FixedClip issueId={m.issueId} />}
                 </View>
               </View>
             );

@@ -615,3 +615,20 @@
 .steps li[data-current='true'] {
   border-color: var(--ok);
 }
+.fixedClip {
+  margin: 12px 0 0;
+  width: 162px;
+}
+.fixedClip video {
+  display: block;
+  width: 162px;
+  height: 288px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: var(--concrete);
+}
+.fixedClip figcaption {
+  margin-top: 4px;
+  font-size: var(--t-xs);
+  color: var(--curb);
+}

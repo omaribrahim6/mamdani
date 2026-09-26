@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { category } from '@/lib/categories';
 import type { Issue, Status } from '@/lib/types';
 import { loadMine, type MyReport } from './hooks';
@@ -12,6 +12,28 @@ const STEPS: Array<{ status: Status; label: string }> = [
   { status: 'in_progress', label: 'Being fixed' },
   { status: 'resolved', label: 'Fixed' },
 ];
+
+/** One pre-made Veo clip shared by every resolved report; never generated per ticket. Plays twice. */
+function FixedClip() {
+  const plays = useRef(1);
+  return (
+    <figure className={s.fixedClip}>
+      <video
+        src="/media/mayor-fixed.mp4"
+        autoPlay
+        muted
+        playsInline
+        aria-label="Animation: Mamdani plants a green Fixed flag on the repaired street"
+        onEnded={(e) => {
+          if (plays.current >= 2) return;
+          plays.current += 1;
+          void e.currentTarget.play();
+        }}
+      />
+      <figcaption>AI animation · not a repair photo</figcaption>
+    </figure>
+  );
+}
 
 export function MyReports({ onClose }: { onClose: () => void }) {
   const [mine] = useState<MyReport[]>(() => loadMine());
@@ -79,6 +101,7 @@ export function MyReports({ onClose }: { onClose: () => void }) {
                       </li>
                     ))}
                   </ol>
+                  {status === 'resolved' && <FixedClip />}
                 </div>
               </li>
             );

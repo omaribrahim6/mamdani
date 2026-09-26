@@ -55,7 +55,8 @@
         {
           "microphonePermission": "Talk to Mamdani about what you're showing him."
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }
