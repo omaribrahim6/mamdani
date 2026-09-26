@@ -48,6 +48,37 @@ const WINDOW = 124; // Mamdani's round window
 const ACCENT = C.hardhat;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// ── demo branch: one scripted take for the video ──
+// Say "fix this pothole" (or tap the camera view): he answers with a pre-recorded Orus line, starts
+// walking out on "I'll send it over!", steps into the photo in his construction gear and plants the flag.
+// No network in the loop except Live's ears; nothing is filed.
+const DEMO = true;
+const DEMO_LINE = 'Worry not, young citizen! My finest engineers will fix this ASAP. I’ll send it over!';
+const DEMO_EXIT_AT = 3500; // into the 5.1 s line, on "ASAP": he's on his way as he says "I'll send it over!"
+const DEMO_TRIGGER = /fix (this|it)\b/i;
+const demoDecision = (address: string): ReportDecision => ({
+  reportId: 'report_1849',
+  sessionId: 'demo',
+  issue: {
+    id: 1849,
+    type: 'pothole',
+    title: 'Deep pothole in the lane',
+    summary: 'A deep pothole in the driving lane.',
+    severity: 82,
+    safetyRisk: 74,
+    accessibilityImpact: 'moderate',
+    department: 'Roads Services',
+    address,
+    status: 'new',
+    duplicateCount: 1,
+    duplicate: false,
+    box: [470, 300, 760, 700], // centre-bottom of the frame: point the phone at the pothole
+  },
+  character: { outfit: 'CONSTRUCTION', animation: 'PLACE_FLAG', prop: 'WARNING_FLAG', emotion: 'DETERMINED', response: DEMO_LINE },
+  confidence: 0.94,
+  engine: 'demo',
+});
+
 /** Shrink a camera shot: 1600 px for evidence, 512 px for what Live sees. */
 async function shrink(uri: string, w: number, h: number, long: number, compress: number, base64 = false) {
   const ctx = ImageManipulator.manipulate(uri);
@@ -113,6 +144,11 @@ export function CaptureScreen() {
   const [mineOpen, setMineOpen] = useState(false);
   const [lastPhoto, setLastPhoto] = useState<string | null>(null);
   const devDecision = useRef<ReportDecision | null>(null);
+  // demo branch
+  const heardRef = useRef('');
+  const demoClip = useRef<Awaited<ReturnType<LiveAudio['loadClip']>>>(null);
+  const demoRunning = useRef(false);
+  const runDemoRef = useRef<(photo?: Media) => Promise<void>>(async () => {});
   const details = useRef<{ hazards: string[]; notes: string[] }>({ hazards: [], notes: [] });
 
   // motion
@@ -150,6 +186,27 @@ export function CaptureScreen() {
   // ── Live + audio wiring ──
   useEffect(() => {
     live.onStatus = setLiveStatus;
+    if (DEMO) {
+      // Live is only his ears here: no tools, no greeting, and whatever it says is never played
+      live.adjustSetup = ({ tools: _tools, ...setup }) => ({
+        ...setup,
+        systemInstruction: { parts: [{ text: 'Listen quietly. Reply with a single short "Mm." to anything.' }] },
+      });
+      // "…pothole" goes at once; "fix this" waits a beat so he doesn't talk over the rest of the sentence
+      let beat: ReturnType<typeof setTimeout> | undefined;
+      live.onHeard = (chunk) => {
+        heardRef.current = (heardRef.current + chunk).slice(-200);
+        clearTimeout(beat);
+        if (/pot ?holes?/i.test(heardRef.current)) void runDemoRef.current();
+        else if (DEMO_TRIGGER.test(heardRef.current)) beat = setTimeout(() => void runDemoRef.current(), 700);
+      };
+      void live.start();
+      return () => {
+        clearTimeout(beat);
+        live.stop();
+        void audio.dispose();
+      };
+    }
     live.onFirstReady = () => live.prompt('Begin the conversation with your greeting.');
     live.onAudio = (pcm) => {
       const s = stateRef.current;
@@ -234,7 +291,8 @@ export function CaptureScreen() {
         setMicOk(false);
       });
       // Lyria-made "on his way" music for the wait while he gets ready
-      void audio.loadMusic(require('../assets/audio/wait-loop.wav'));
+      if (DEMO) demoClip.current = await audio.loadClip(require('../assets/audio/demo-line.wav'));
+      else void audio.loadMusic(require('../assets/audio/wait-loop.wav'));
     })();
     return () => {
       alive = false;
@@ -274,7 +332,7 @@ export function CaptureScreen() {
   const hearingRef = useRef(false);
   hearingRef.current = hearing;
   useEffect(() => {
-    if (!framesOpen(state) || liveStatus !== 'live' || !camPerm?.granted) return;
+    if (DEMO || !framesOpen(state) || liveStatus !== 'live' || !camPerm?.granted) return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
@@ -331,8 +389,37 @@ export function CaptureScreen() {
     context: [live.recentConversation(), visual.current && `What Mamdani saw on camera: ${visual.current}`].filter(Boolean).join('\n'),
   });
 
+  /** The demo take: his line in his window (photo taken meanwhile), out on the last words, then the
+   *  usual flow with a hard-coded decision: into the photo in construction gear, flag down. */
+  const runDemo = async (photoOverride?: Media) => {
+    if (demoRunning.current || stateRef.current !== 'LIVE_IDLE') return;
+    demoRunning.current = true;
+    heardRef.current = '';
+    const t0 = Date.now();
+    setSaid(DEMO_LINE);
+    const shot = photoOverride ? Promise.resolve(photoOverride) : takeEvidence();
+    const clip = demoClip.current;
+    if (!(clip && audio.playClip(clip))) void sayOnDevice(DEMO_LINE);
+    let photo: Media;
+    try {
+      photo = await shot;
+    } catch {
+      audio.interrupt();
+      hush();
+      setSaid('');
+      setLine('The camera didn’t take the photo. Try again.');
+      demoRunning.current = false;
+      return;
+    }
+    await wait(DEMO_EXIT_AT - (Date.now() - t0));
+    devDecision.current = demoDecision(where.label ?? 'Bank St at Gladstone Ave');
+    dispatch({ type: 'SHUTTER', snapshot: { sessionId: 'demo', photo, lat: where.lat, lng: where.lng, capturedAt: Date.now(), context: '' } });
+  };
+  runDemoRef.current = runDemo;
+
   /** Manual report, for when Live can't be reached. */
   const manualCapture = async () => {
+    if (DEMO) return void runDemo();
     if (stateRef.current !== 'LIVE_IDLE') return;
     visual.current = '';
     try {
@@ -353,7 +440,7 @@ export function CaptureScreen() {
     (async () => {
       try {
         if (devDecision.current) {
-          await wait(3200);
+          await wait(DEMO ? 0 : 3200);
           if (runRef.current === run) dispatch({ type: 'DECIDED', decision: devDecision.current });
           return;
         }
@@ -403,6 +490,8 @@ export function CaptureScreen() {
     switch (state) {
       case 'LIVE_IDLE': {
         setLine(null);
+        demoRunning.current = false;
+        heardRef.current = '';
         if (f.notice) {
           setLine(f.notice);
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -439,8 +528,8 @@ export function CaptureScreen() {
       case 'CAPTURED': {
         // photo's in: he heads out straight away (the analysis effect above is already running)
         brackets.setValue(0);
-        setLine('Got it.');
-        const t = setTimeout(() => dispatch({ type: 'EXIT' }), 350);
+        if (!DEMO) setLine('Got it.');
+        const t = setTimeout(() => dispatch({ type: 'EXIT' }), DEMO ? 0 : 350);
         return () => clearTimeout(t);
       }
 
@@ -459,7 +548,7 @@ export function CaptureScreen() {
               Animated.timing(win.sy, { toValue: 0, duration: 90, easing: Easing.in(Easing.quad), useNativeDriver: true }),
             ]).start(() => done()),
           );
-          await wait(150);
+          if (!DEMO) await wait(150);
           if (alive) dispatch({ type: 'EXITED' });
         })();
         return () => {
@@ -519,6 +608,7 @@ export function CaptureScreen() {
             mood: MOOD[c.emotion],
             action: c.animation,
             prop: c.prop,
+            walk: DEMO ? 1.3 : undefined,
             onArrive: () => dispatch({ type: 'ACT' }),
             onThunk: () => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -540,6 +630,10 @@ export function CaptureScreen() {
       case 'CHARACTER_SPEAKING': {
         // the animation timeline owns WHEN he speaks; the decision owns WHAT he says; Live is the voice
         const text = d!.character.response;
+        if (DEMO) {
+          dispatch({ type: 'SPOKEN' }); // he said it on his way out
+          break;
+        }
         (async () => {
           if (live.status === 'live') {
             const spoken = new Promise<void>((res) => (lineSpoken.current = res));
@@ -605,6 +699,7 @@ export function CaptureScreen() {
         dispatch({ type: 'SHUTTER', snapshot: { sessionId: newSessionId(), photo, lat: where.lat, lng: where.lng, capturedAt: Date.now(), context: '' } });
       },
       next: () => dispatch({ type: 'NEW_REPORT' }),
+      demo: (photo: Media) => runDemoRef.current(photo),
       state: () => stateRef.current,
       stages: () => ({ portrait: portrait.current, scene: scene.current }),
     };
@@ -618,10 +713,12 @@ export function CaptureScreen() {
   const camAllowed = !!camPerm?.granted;
   const liveDown = liveStatus === 'unavailable' || micOk === false;
 
-  const caption = said && liveMaySpeak(state) ? said : null;
+  const caption = said && (DEMO || liveMaySpeak(state)) ? said : null;
   const status =
     line ??
-    (state === 'LIVE_IDLE'
+    (DEMO
+      ? null
+      : state === 'LIVE_IDLE'
       ? liveStatus === 'connecting' || liveStatus === 'off'
         ? 'Mamdani is on his way…'
         : liveDown
@@ -683,6 +780,8 @@ export function CaptureScreen() {
         {box && <Brackets box={box} progress={brackets} width={W} height={viewH} />}
 
         <GLHost create={(s) => new MayorStage(s)} onReady={(s) => (scene.current = s)} />
+        {/* demo: tapping the camera is the backup trigger if the voice one misses */}
+        {DEMO && state === 'LIVE_IDLE' && <Pressable style={StyleSheet.absoluteFill} onPress={() => void runDemo()} accessibilityLabel="Fix this" />}
 
         <Animated.View
           pointerEvents="none"
