@@ -24,31 +24,48 @@ export async function submitReport(p: {
   answer?: string | null;
   final?: boolean;
 }): Promise<ReportResponse> {
-  const fd = new FormData();
-  // Expo's fetch (the global one since SDK 52+) reads files from expo-file-system File objects;
-  // React Native's old { uri, name, type } parts make it throw before anything is sent.
-  if (Platform.OS === 'web') fd.append('photo', await (await fetch(p.photo.uri)).blob(), 'photo.jpg');
-  else fd.append('photo', new File(p.photo.uri) as unknown as Blob, 'photo.jpg');
-  fd.append('sessionId', p.sessionId);
-  fd.append('lat', String(p.lat));
-  fd.append('lng', String(p.lng));
-  fd.append('capturedAt', String(p.capturedAt));
-  if (p.context) fd.append('context', p.context);
-  if (p.answer) fd.append('answer', p.answer);
-  if (p.final) fd.append('final', '1');
+  // The photo travels as base64 in a JSON body: Expo's fetch sends plain string bodies reliably,
+  // where its multipart uploads were being dropped by iOS mid-request.
+  const data =
+    Platform.OS === 'web'
+      ? await blobToBase64(await (await fetch(p.photo.uri)).blob())
+      : await new File(p.photo.uri).base64();
+  const body = JSON.stringify({
+    photo: { data, mime: 'image/jpeg' },
+    sessionId: p.sessionId,
+    lat: p.lat,
+    lng: p.lng,
+    capturedAt: p.capturedAt,
+    context: p.context || undefined,
+    answer: p.answer || undefined,
+    final: p.final || undefined,
+  });
 
   // the same session can be retried safely: the server returns the report it already filed
   let last: Error | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 45_000);
     try {
-      const r = await fetch(`${API}/api/submit`, { method: 'POST', body: fd });
+      const r = await fetch(`${API}/api/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: abort.signal,
+      });
       const j = await r.json().catch(() => ({}));
       if (r.ok) return j as ReportResponse;
       last = new Error(j.error || 'I couldn’t file that one. Try again.');
       if (r.status < 500) break;
     } catch (e) {
       console.warn('submit failed', e);
-      last = new Error('No connection to the city. Check your signal and try again.');
+      last = new Error(
+        abort.signal.aborted
+          ? 'The city is taking too long to answer. Try again in a moment.'
+          : 'No connection to the city. Check your signal and try again.',
+      );
+    } finally {
+      clearTimeout(timer);
     }
     await new Promise((res) => setTimeout(res, 800 * (attempt + 1)));
   }
@@ -88,4 +105,13 @@ export async function verifyAnswer(issueId: number, answer: string, question: st
   } catch {
     return { grounded: true, answer };
   }
+}
+
+function blobToBase64(b: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1] ?? '');
+    r.onerror = reject;
+    r.readAsDataURL(b);
+  });
 }
