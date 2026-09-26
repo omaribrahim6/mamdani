@@ -30,7 +30,11 @@
       "expo-font",
       [
         "expo-splash-screen",
-        { "backgroundColor": "#26292c", "image": "./assets/splash-icon.png", "imageWidth": 160 }
+        {
+          "backgroundColor": "#26292c",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160
+        }
       ],
       [
         "expo-camera",
@@ -42,12 +46,17 @@
       ],
       [
         "expo-location",
-        { "locationWhenInUsePermission": "Your report needs the spot where the problem is, so the crew can find it." }
+        {
+          "locationWhenInUsePermission": "Your report needs the spot where the problem is, so the crew can find it."
+        }
       ],
       [
         "expo-image-picker",
-        { "photosPermission": "Send a photo or video of the problem you already took." }
-      ]
+        {
+          "photosPermission": "Send a photo or video of the problem you already took."
+        }
+      ],
+      "expo-asset"
     ]
   }
 }

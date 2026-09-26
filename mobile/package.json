@@ -8,6 +8,7 @@
     "@expo/metro-runtime": "~57.0.16",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.25",
+    "expo-asset": "~57.0.18",
     "expo-audio": "~57.0.5",
     "expo-blur": "~57.0.3",
     "expo-camera": "~57.0.5",
