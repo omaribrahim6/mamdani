@@ -25,14 +25,16 @@ flowchart LR
 
 ## Models and responsibilities
 
-These are the runtime model IDs selected by [the AI configuration](lib/ai.ts) and [Live setup](lib/live.ts). The environment variables below override the code defaults.
+Model roles and their implementation on `main` are listed below. The Gemini IDs are code defaults from [the AI configuration](lib/ai.ts) and [Live setup](lib/live.ts); the listed environment variables override them.
 
-| Model (code default) | What it does in the current system | Environment override | Implementation |
+| Model | Role | Environment override | Current implementation |
 | --- | --- | --- | --- |
 | `gemini-3.8-live` | Runs Mamdani's mobile conversation: sees camera frames, hears microphone audio, streams spoken replies and transcripts, and calls `report_issue` when ready to capture evidence. | `GEMINI_LIVE_MODEL` | [Live setup](lib/live.ts), [mobile client](mobile/src/live/client.ts) |
 | `gemini-3.8-flash` | Analyzes the evidence photo, optional short video, and conversation context. Produces the issue category, description, severity, safety risk, accessibility impact, confidence, bounding box, and any clarification question. Also chooses Mamdani's response, outfit, emotion, prop, and animation. | `GEMINI_MODEL` | [Report analysis](lib/analyze.ts), [submission pipeline](lib/submit.ts) |
 | `gemini-3.5-flash-lite` | Screens photos and locates faces and licence plates for pixelation; compares two photos when duplicate matching needs a visual check; checks answers against saved report facts when Check Grounding is unavailable and rewrites unsupported answers. | `GEMINI_LITE_MODEL` | [Photo screening](lib/screen.ts), [duplicate matching](lib/intake.ts), [answer verification](lib/verify.ts) |
 | `gemini-embedding-2` | Converts evidence photos into normalized 768-dimensional vectors. Similarity comparisons help match nearby reports of the same physical issue. | `GEMINI_EMBED_MODEL` | [Image embeddings](lib/ai.ts), [duplicate matching](lib/intake.ts) |
+| Lyria | Generates the waiting music played while Mamdani gets ready and the report is processed. | None; the generated audio is bundled with the app. | [Capture flow](mobile/src/CaptureScreen.tsx) loads [the music loop](mobile/assets/audio/wait-loop.wav); [audio playback](mobile/src/live/audio.ts) loops and fades it. |
+| ShieldGemma 2 | Intended model for checking whether submitted content is appropriate. | Not configured on `main`. | No ShieldGemma 2 integration is present in the current code; [photo screening](lib/screen.ts) still calls Flash-Lite. |
 
 [`.env.example`](.env.example) currently sets `GEMINI_MODEL=gemini-2.5-flash`. Copying that value into the runtime environment selects **2.5 Flash for report analysis**, overriding the **3.8 Flash** code default above.
 
