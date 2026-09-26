@@ -22,9 +22,9 @@ const SCHEMA = {
     kind: {
       type: 'string',
       enum: ['street_scene', 'selfie_or_portrait', 'screenshot_or_document', 'indoor_private', 'explicit', 'violent', 'hateful', 'other'],
-      description: 'What this photo is. street_scene = any outdoor or public place a city could be responsible for.',
+      description: 'What this photo is. street_scene = any public place, outdoors OR indoors (libraries, transit stations, rec centres, city buildings, parks).',
     },
-    appropriate: { type: 'boolean', description: 'false if explicit, violent/gory, hateful, harassing, or not a photo of a place at all' },
+    appropriate: { type: 'boolean', description: 'false ONLY if explicit, violent/gory, hateful or harassing. Indoor photos, desks and close-ups of litter or damage are appropriate.' },
     reason: { type: 'string', description: 'If not appropriate: one short, kind sentence to the resident. Else empty.' },
     faces: { type: 'array', items: { type: 'array', items: { type: 'integer' } }, description: 'Every visible human face as [ymin,xmin,ymax,xmax] 0-1000' },
     plates: { type: 'array', items: { type: 'array', items: { type: 'integer' } }, description: 'Every readable vehicle licence plate as [ymin,xmin,ymax,xmax] 0-1000' },
@@ -34,7 +34,10 @@ const SCHEMA = {
 
 const PROMPT = `A resident is reporting a problem to their city with this photo. Screen it before it is stored.
 Classify what it is, decide if it's appropriate to keep as city evidence, and locate every human face and readable licence plate so they can be blurred.
-Graffiti, litter, damage and messy scenes are fine: they are what people report. Only refuse genuinely explicit, violent, hateful or harassing images, or things that aren't a photo of a place.`;
+Graffiti, litter, damage and messy scenes are fine: they are what people report. Indoor public places count too:
+garbage on a table in a public library, a broken fixture in a transit station or rec centre. Whether it's the city's
+job is decided later, not here. Only refuse genuinely explicit, violent, hateful or harassing images, selfies or portraits
+that are about a person rather than a place, and screenshots or photos of documents.`;
 
 export async function screenPhoto(photo: { data: Buffer; mime: string }): Promise<Screen> {
   if (!hasAI()) return { appropriate: true, reason: '', kind: 'street_scene', blur: [] };

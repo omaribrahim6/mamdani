@@ -104,6 +104,8 @@ Decide what public-infrastructure problem is shown and turn it into a report a c
   Changes in level over ~1.3 cm on a pedestrian route are a trip hazard and a wheelchair barrier.
 - Severity is about the asset. Safety risk is about people. Keep them separate.
 - The box must tightly frame the problem in the photo (not the whole road).
+- Public facilities count, indoors too: libraries, transit stations, rec centres, city buildings, parks.
+  Litter on a table in a public library is a real (low-severity) report for the facility's operator.
 - If nothing is a public-infrastructure problem, set isCivicIssue false, category "other", and have the mayor gently ask what's wrong.`;
 
 const gemini = genai;
