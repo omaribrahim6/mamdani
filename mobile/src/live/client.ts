@@ -1,14 +1,15 @@
 import { API } from '../api';
-import { base64ToBytes, utf8 } from './pcm';
+import { utf8 } from './pcm';
 
-// Gemini Live over a raw WebSocket: Mamdani's eyes (camera frames), ears (mic PCM) and
-// conversation. It stays connected the whole time; the app's state machine decides whether a
-// reply is allowed to reach the user. The client never files anything — reports are the shutter's job.
+// Gemini Live over a raw WebSocket (Vertex AI, short-lived token from /api/live): Mamdani's eyes
+// (camera frames), ears (mic PCM), voice (streamed 24 kHz audio) and judgement — he decides, with
+// the report_issue tool, when he's seen and heard enough to take the evidence photo. The app's
+// state machine decides whether what he says may be heard.
 
-export interface LiveReply {
-  text: string; // what Mamdani said (output transcription)
-  question: string; // what the resident said that he's answering
-  audio: Uint8Array[]; // his native audio, 24 kHz int16, used only if our voice service is unavailable
+export interface ToolCall {
+  id: string;
+  name: string;
+  args: { visual_description?: string; clarification?: string };
 }
 
 export interface TranscriptLine {
@@ -19,34 +20,43 @@ export interface TranscriptLine {
 
 type Status = 'off' | 'connecting' | 'live' | 'unavailable';
 
-interface TokenInfo {
+interface SessionInfo {
   token: string;
   model: string;
   url: string;
-  config: { systemInstruction: unknown };
+  /** raw setup fields: systemInstruction, tools, generationConfig, transcription… */
+  setup: Record<string, unknown>;
 }
 
 export class LiveClient {
   status: Status = 'off';
   onStatus?: (s: Status) => void;
-  /** a completed model turn */
-  onReply?: (r: LiveReply) => void;
-  /** a chunk of what the resident is saying, as Live hears it */
-  onHeard?: (text: string) => void;
+  /** a chunk of his voice, base64 16-bit PCM at 24 kHz */
+  onAudio?: (pcm: string) => void;
+  /** his words as he says them */
+  onSaid?: (chunk: string) => void;
+  /** the resident's words as Live hears them */
+  onHeard?: (chunk: string) => void;
+  /** a turn of his finished: everything he said in it, and what the resident had just said */
+  onTurn?: (said: string, heard: string) => void;
+  /** the resident talked over him: drop what's queued */
+  onInterrupted?: () => void;
+  onToolCall?: (call: ToolCall) => void;
+  /** the first time a session is ready (not on silent resumptions) */
+  onFirstReady?: () => void;
 
   private ws: WebSocket | null = null;
-  private info: TokenInfo | null = null;
+  private info: SessionInfo | null = null;
   private resumeHandle: string | null = null;
   private disposed = false;
   private retry = 0;
+  private failures = 0;
+  private setupDone = false;
+  private everReady = false;
   private turnText = '';
-  private turnAudio: Uint8Array[] = [];
   private heard = '';
   private log: TranscriptLine[] = [];
-  /** why the last socket closed — sent with the next token request so it shows in the server logs */
   private lastClose: { code: number; reason: string; afterSetup: boolean; error?: string } | null = null;
-  private setupDone = false;
-  private failures = 0;
 
   async start() {
     this.disposed = false;
@@ -61,7 +71,7 @@ export class LiveClient {
         });
         if (r.status === 503) return this.set('unavailable');
         if (!r.ok) throw new Error(`token ${r.status}`);
-        this.info = (await r.json()) as TokenInfo;
+        this.info = (await r.json()) as SessionInfo;
       }
       this.open(this.info);
     } catch {
@@ -69,7 +79,7 @@ export class LiveClient {
     }
   }
 
-  private open(info: TokenInfo) {
+  private open(info: SessionInfo) {
     const ws = new WebSocket(`${info.url}?access_token=${encodeURIComponent(info.token)}`);
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
@@ -78,15 +88,7 @@ export class LiveClient {
     ws.onopen = () => {
       ws.send(
         JSON.stringify({
-          setup: {
-            model: info.model,
-            generationConfig: { responseModalities: ['AUDIO'] },
-            systemInstruction: info.config.systemInstruction,
-            inputAudioTranscription: {},
-            outputAudioTranscription: {},
-            contextWindowCompression: { slidingWindow: {} },
-            sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {},
-          },
+          setup: { model: info.model, ...info.setup, sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {} },
         }),
       );
     };
@@ -113,20 +115,19 @@ export class LiveClient {
 
   private scheduleReconnect() {
     if (this.disposed) return;
-    // a socket that never got through setup is a failure; give up after a few instead of looping
     if (!this.setupDone && ++this.failures >= 5) {
       this.info = null;
       return this.set('unavailable');
     }
     this.set('connecting');
     this.retry++;
-    // a token is single-use for new sessions; resuming with a handle doesn't spend it
+    // tokens last an hour; fetch a fresh one if resuming keeps failing
     if (!this.resumeHandle || this.retry > 2) this.info = null;
-    setTimeout(() => void (this.status !== 'live' && !this.disposed && this.startAgain()), Math.min(8000, 600 * this.retry));
-  }
-  private startAgain() {
-    this.status = 'off';
-    void this.start();
+    setTimeout(() => {
+      if (this.status === 'live' || this.disposed) return;
+      this.status = 'off';
+      void this.start();
+    }, Math.min(8000, 600 * this.retry));
   }
 
   private handle(m: Record<string, any>) {
@@ -135,14 +136,19 @@ export class LiveClient {
       this.failures = 0;
       this.setupDone = true;
       this.set('live');
+      if (!this.everReady) {
+        this.everReady = true;
+        this.onFirstReady?.();
+      }
       return;
     }
-    if (m.sessionResumptionUpdate?.resumable && m.sessionResumptionUpdate.newHandle) {
-      this.resumeHandle = m.sessionResumptionUpdate.newHandle;
-    }
+    if (m.sessionResumptionUpdate?.resumable && m.sessionResumptionUpdate.newHandle) this.resumeHandle = m.sessionResumptionUpdate.newHandle;
     if (m.goAway) {
-      // the socket is about to close; reconnect cleanly with the resumption handle
       this.ws?.close();
+      return;
+    }
+    if (m.toolCall?.functionCalls) {
+      for (const c of m.toolCall.functionCalls) this.onToolCall?.({ id: c.id, name: c.name, args: c.args ?? {} });
       return;
     }
     const sc = m.serverContent;
@@ -151,23 +157,23 @@ export class LiveClient {
       this.heard += sc.inputTranscription.text;
       this.onHeard?.(sc.inputTranscription.text);
     }
-    if (sc.outputTranscription?.text) this.turnText += sc.outputTranscription.text;
-    for (const p of sc.modelTurn?.parts ?? []) {
-      if (p.inlineData?.data) this.turnAudio.push(base64ToBytes(p.inlineData.data));
+    if (sc.outputTranscription?.text) {
+      this.turnText += sc.outputTranscription.text;
+      this.onSaid?.(sc.outputTranscription.text);
     }
+    for (const p of sc.modelTurn?.parts ?? []) if (p.inlineData?.data) this.onAudio?.(p.inlineData.data);
     if (sc.interrupted) {
       this.turnText = '';
-      this.turnAudio = [];
+      this.onInterrupted?.();
     }
     if (sc.turnComplete) {
-      const question = this.heard.trim();
-      if (question) this.log.push({ who: 'resident', text: question, at: Date.now() });
+      const heard = this.heard.trim();
+      const said = this.turnText.trim();
+      if (heard) this.log.push({ who: 'resident', text: heard, at: Date.now() });
+      if (said) this.log.push({ who: 'mamdani', text: said, at: Date.now() });
       this.heard = '';
-      const reply = { text: this.turnText.trim(), question, audio: this.turnAudio };
       this.turnText = '';
-      this.turnAudio = [];
-      if (reply.text) this.log.push({ who: 'mamdani', text: reply.text, at: Date.now() });
-      if (reply.text || reply.audio.length) this.onReply?.(reply);
+      this.onTurn?.(said, heard);
     }
   }
 
@@ -188,13 +194,22 @@ export class LiveClient {
     this.send({ realtimeInput: { video: { data: b64, mimeType: 'image/jpeg' } } });
   }
 
-  /** Quietly tell Mamdani something (e.g. the filed report). He takes it in without replying. */
-  tell(text: string) {
-    this.send({ clientContent: { turns: [{ role: 'user', parts: [{ text }] }], turnComplete: false } });
+  /** A message from the app that he responds to (e.g. "begin", "say this"). */
+  prompt(text: string) {
+    this.send({ clientContent: { turns: [{ role: 'user', parts: [{ text: `[App] ${text}` }] }], turnComplete: true } });
   }
 
-  /** The last couple of minutes of conversation, oldest first — frozen into the report at shutter time. */
-  recentConversation(ms = 120_000) {
+  /** Quietly tell him something; he takes it in without replying. */
+  tell(text: string) {
+    this.send({ clientContent: { turns: [{ role: 'user', parts: [{ text: `[App] ${text}` }] }], turnComplete: false } });
+  }
+
+  respond(call: ToolCall, response: Record<string, unknown>) {
+    this.send({ toolResponse: { functionResponses: [{ id: call.id, name: call.name, response }] } });
+  }
+
+  /** The last few minutes of conversation, oldest first — frozen into the report at capture. */
+  recentConversation(ms = 180_000) {
     const since = Date.now() - ms;
     const lines = this.log.filter((l) => l.at >= since);
     if (this.heard.trim()) lines.push({ who: 'resident', text: this.heard.trim(), at: Date.now() });

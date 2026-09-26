@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Animated, Easing, Image, Linking, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import type { MayorOutfit } from '../../components/mayor/build';
 import { PortraitStage } from '../../components/mayor/portrait';
 import { MayorStage } from '../../components/mayor/stage';
@@ -14,15 +14,21 @@ import type { CharacterDecision, CharacterOutfit, Mood, ReportDecision } from '.
 import { newSessionId, submitReport, verifyAnswer, type Media } from './api';
 import { flow, framesOpen, initialFlow, liveMaySpeak, mamdaniMode, micOpen, showsSnapshot, type FlowState } from './flow/machine';
 import { GLHost } from './GLHost';
-import { LiveClient } from './live/client';
-import { useMic } from './live/useMic';
+import { LiveAudio } from './live/audio';
+import { LiveClient, type ToolCall } from './live/client';
 import { useWhere } from './location';
 import { loadMine, saveMine } from './mine';
 import { MyReports } from './MyReports';
 import { ReportSheet, severityWord } from './ReportSheet';
 import { Button, PinIcon } from './ui';
-import { hush, prepareAudio, say } from './voice';
+import { hush, sayOnDevice } from './voice';
 import { C, F, T } from './theme';
+
+// The resident opens the app; Mamdani, in his round window, asks what the problem is. They talk it
+// through while he watches the camera (Gemini Live). When he's heard and seen enough he says
+// "hold steady" and takes the evidence photo himself (the report_issue tool). One Gemini decision
+// comes back; he suits up, walks out of his window and into the photo, does what the job needs,
+// and tells them — in his own voice — that it's reported. Then they can keep talking about it.
 
 const OUTFIT: Record<CharacterOutfit, MayorOutfit> = {
   DEFAULT: 'suit',
@@ -38,11 +44,11 @@ const MOOD: Record<CharacterDecision['emotion'], Mood> = {
   CHEERFUL: 'impressed',
 };
 const PROCESSING_LINES = ['Looking at it…', 'Understanding the issue…', 'Checking nearby reports…'];
-const WINDOW = 116; // Mamdani's round window
+const WINDOW = 124; // Mamdani's round window
 const ACCENT = C.hardhat;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Evidence photos go up at 1600 px on the long edge: clear for a crew, quick on a cell connection. */
+/** Shrink a camera shot: 1600 px for evidence, 512 px for what Live sees. */
 async function shrink(uri: string, w: number, h: number, long: number, compress: number, base64 = false) {
   const ctx = ImageManipulator.manipulate(uri);
   if (Math.max(w, h) > long) ctx.resize(w >= h ? { width: long } : { height: long });
@@ -50,10 +56,20 @@ async function shrink(uri: string, w: number, h: number, long: number, compress:
   return img.saveAsync({ compress, format: SaveFormat.JPEG, base64 });
 }
 
+/** The filed report as facts Mamdani can talk about afterwards. */
+function factsOf(d: ReportDecision) {
+  const i = d.issue;
+  return (
+    `Work order ${i.id}: ${category(i.type).label}, "${i.title}". ${i.summary} Severity ${i.severity}/100 (${severityWord(i.severity).toLowerCase()}), ` +
+    `safety risk ${i.safetyRisk}/100, accessibility impact ${i.accessibilityImpact}. At ${i.address}. Sent to ${i.department}. ` +
+    `Status: ${i.status}. ${i.duplicateCount} resident report(s) of this problem so far.`
+  );
+}
+
 export function CaptureScreen() {
   const insets = useSafeAreaInsets();
   const { width: W, height: H } = useWindowDimensions();
-  const viewH = Math.round(Math.min(H * 0.74, H - 222 - insets.bottom));
+  const viewH = Math.round(Math.min(H * 0.7, H - 250 - insets.bottom));
   const where = useWhere();
   const [camPerm, requestCam] = useCameraPermissions();
   const cam = useRef<CameraView>(null);
@@ -66,19 +82,30 @@ export function CaptureScreen() {
   stateRef.current = state;
   const decisionRef = useRef(f.decision);
   decisionRef.current = f.decision;
+  const mode = mamdaniMode(state);
 
   // one Mamdani, two framings: his window (portrait) and the photo (scene)
   const portrait = useRef<PortraitStage | null>(null);
   const scene = useRef<MayorStage | null>(null);
 
-  // Gemini Live: his eyes, ears and conversation
+  // Gemini Live (his mind) and the phone's audio (his ears and voice)
   const live = useRef(new LiveClient()).current;
+  const audio = useRef(new LiveAudio()).current;
   const [liveStatus, setLiveStatus] = useState(live.status);
-  const [talking, setTalking] = useState(false);
-  const talkingRef = useRef(false);
-  const mic = useMic(micOpen(state) && !talking && liveStatus === 'live', (b64) => live.sendAudio(b64));
+  const [micOk, setMicOk] = useState<boolean | null>(null);
+  const [speaking, setSpeaking] = useState(false);
+  const [hearing, setHearing] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [said, setSaid] = useState(''); // what he's saying, as a caption
+  const freshTurn = useRef(true);
 
-  const [line, setLine] = useState<string | null>(null); // the one line of text under the camera
+  const pendingCall = useRef<ToolCall | null>(null); // his report_issue call, answered when the pipeline decides
+  const visual = useRef(''); // what he said he saw
+  const held = useRef<string[] | null>(null); // a post-report answer, held until it's checked
+  const correcting = useRef(false);
+  const lineSpoken = useRef<(() => void) | null>(null);
+
+  const [line, setLine] = useState<string | null>(null); // status under the camera
   const [sheet, setSheet] = useState(false);
   const [mineOpen, setMineOpen] = useState(false);
   const [lastPhoto, setLastPhoto] = useState<string | null>(null);
@@ -94,59 +121,150 @@ export function CaptureScreen() {
 
   useEffect(() => {
     void loadMine().then((m) => setLastPhoto(m.find((x) => x.photoUri)?.photoUri ?? null));
-    void prepareAudio();
   }, []);
 
-  // ── Mamdani speaks (one voice for everything) ──
-  const speak = useCallback(async (text: string, who: 'portrait' | 'scene', pcm?: Uint8Array[]) => {
-    const stage = who === 'scene' ? scene.current : portrait.current;
-    talkingRef.current = true;
-    setTalking(true);
-    setLine(text);
-    if (who === 'portrait') portrait.current?.act('talk');
-    await say(text, { onStart: () => stage?.speaking(true), onLevel: (v) => stage?.mouthLevel(v) }, pcm);
-    stage?.speaking(false);
-    talkingRef.current = false;
-    setTalking(false);
-    if (who === 'portrait' && stateRef.current === 'LIVE_IDLE') portrait.current?.act('watch');
-  }, []);
+  /** Answer his pending report_issue call. False if there isn't one. */
+  const answer = useCallback(
+    (response: Record<string, unknown>) => {
+      const call = pendingCall.current;
+      if (!call) return false;
+      pendingCall.current = null;
+      live.respond(call, response);
+      return true;
+    },
+    [live],
+  );
 
-  // ── Live session ──
+  /** Have him tell the resident something (Live's voice, or the phone's if Live is down). */
+  const tell = useCallback(
+    (text: string) => {
+      if (live.status === 'live') live.prompt(`Tell the resident, briefly and kindly: "${text}"`);
+      else void sayOnDevice(text);
+    },
+    [live],
+  );
+
+  // ── Live + audio wiring ──
   useEffect(() => {
     live.onStatus = setLiveStatus;
-    live.onReply = async (r) => {
+    live.onFirstReady = () => live.prompt('Begin the conversation with your greeting.');
+    live.onAudio = (pcm) => {
       const s = stateRef.current;
-      // connected ≠ allowed to talk: outside these states the orchestrator owns Mamdani
-      if (!liveMaySpeak(s) || talkingRef.current || !r.text) return;
-      const issueId = decisionRef.current?.issue.id;
-      if (s === 'LIVE_CONVERSATION' && issueId) {
-        // about a filed report, the city's record is the truth: check before he says it
-        talkingRef.current = true;
-        const v = await verifyAnswer(issueId, r.text, r.question);
-        talkingRef.current = false;
-        if (stateRef.current !== 'LIVE_CONVERSATION') return;
-        void speak(v.answer, 'scene', v.grounded ? r.audio : undefined);
+      if (!liveMaySpeak(s)) return;
+      // about a filed report, the city's record is the truth: hold the answer until it's checked
+      if (s === 'LIVE_CONVERSATION' && decisionRef.current && !correcting.current) {
+        (held.current ??= []).push(pcm);
         return;
       }
-      void speak(r.text, mamdaniMode(s) === 'SCENE' ? 'scene' : 'portrait', r.audio);
+      audio.play(pcm);
+    };
+    live.onSaid = (chunk) => {
+      const s = stateRef.current;
+      if (!liveMaySpeak(s) || (s === 'LIVE_CONVERSATION' && !correcting.current)) return;
+      setSaid((p) => (freshTurn.current ? chunk : p + chunk));
+      freshTurn.current = false;
+    };
+    live.onInterrupted = () => {
+      audio.interrupt();
+      held.current = null;
+    };
+    live.onTurn = async (text, heard) => {
+      freshTurn.current = true;
+      const s = stateRef.current;
+      if (s === 'CHARACTER_SPEAKING' && lineSpoken.current) {
+        await audio.drain();
+        lineSpoken.current?.();
+        lineSpoken.current = null;
+        return;
+      }
+      if (s !== 'LIVE_CONVERSATION') return;
+      if (correcting.current) {
+        correcting.current = false;
+        return;
+      }
+      const chunks = held.current;
+      held.current = null;
+      const d = decisionRef.current;
+      if (!chunks?.length || !d || !text) return;
+      const v = await verifyAnswer(d.issue.id, text, heard);
+      if (stateRef.current !== 'LIVE_CONVERSATION') return;
+      if (v.grounded) {
+        setSaid(text);
+        for (const c of chunks) audio.play(c);
+      } else {
+        correcting.current = true;
+        live.prompt(`Your last answer went beyond the city's record of this report. Say exactly this instead: "${v.answer}"`);
+      }
+    };
+    live.onToolCall = (call) => {
+      if (call.name !== 'report_issue') return live.respond(call, { status: 'error' });
+      const s = stateRef.current;
+      if (s === 'REPORT_CLARIFYING') {
+        pendingCall.current = call;
+        dispatch({ type: 'ANSWERED', answer: call.args.clarification || call.args.visual_description || '' });
+        return;
+      }
+      if (s !== 'LIVE_IDLE') return live.respond(call, { status: 'busy' });
+      pendingCall.current = call;
+      visual.current = call.args.visual_description ?? '';
+      dispatch({ type: 'CAPTURE' });
     };
     void live.start();
-    return () => live.stop();
-  }, [live, speak]);
+    return () => {
+      live.stop();
+      void audio.dispose();
+    };
+  }, [live, audio]);
 
-  // he listens while you talk
-  const hearing = mic.level > 0.06;
+  // the mic: permission, then stream to Live whenever the state lets him listen
   useEffect(() => {
-    if (state !== 'LIVE_IDLE' || talking) return;
-    if (hearing) {
-      portrait.current?.act('listen');
+    let alive = true;
+    (async () => {
+      const ok = await LiveAudio.permission().catch(() => false);
+      if (!alive) return;
+      setMicOk(ok);
+      if (!ok) return;
+      audio.onSpeaking = setSpeaking;
+      audio.onError = (m) => console.warn('audio', m);
+      await audio.start((pcm) => micOpen(stateRef.current) && live.sendAudio(pcm)).catch((e) => {
+        console.warn('mic failed', e);
+        setMicOk(false);
+      });
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [audio, live]);
+
+  useEffect(() => {
+    audio.muted = muted;
+  }, [audio, muted]);
+
+  // his mouth follows his voice; his face shows he's listening
+  useEffect(() => {
+    const t = setInterval(() => {
+      const lvl = audio.levelNow();
+      const m = mamdaniMode(stateRef.current);
+      (m === 'SCENE' ? scene.current : portrait.current)?.mouthLevel(lvl);
+      const h = audio.micLevel > 0.06;
+      setHearing((p) => (p === h ? p : h));
+    }, 33);
+    return () => clearInterval(t);
+  }, [audio]);
+
+  useEffect(() => {
+    const talking = speaking && liveMaySpeak(state);
+    if (mode === 'SCENE') {
+      scene.current?.speaking(talking);
       return;
     }
-    const t = setTimeout(() => stateRef.current === 'LIVE_IDLE' && !talkingRef.current && portrait.current?.act('watch'), 900);
-    return () => clearTimeout(t);
-  }, [hearing, state, talking]);
+    const p = portrait.current;
+    if (!p) return;
+    p.speaking(talking);
+    if (state === 'LIVE_IDLE' || state === 'REPORT_CLARIFYING') p.act(talking ? 'talk' : hearing ? 'listen' : 'watch');
+  }, [speaking, hearing, state, mode]);
 
-  // what the camera sees, for Live — only while the camera is live (never after the shutter)
+  // what the camera sees, for Live — only while he's looking (never after the photo)
   useEffect(() => {
     if (!framesOpen(state) || liveStatus !== 'live' || !camPerm?.granted) return;
     const t = setInterval(async () => {
@@ -163,47 +281,52 @@ export function CaptureScreen() {
       } finally {
         camBusy.current = false;
       }
-    }, 2000);
+    }, 1100);
     return () => clearInterval(t);
   }, [state, liveStatus, camPerm?.granted, live]);
 
-  // ── the shutter: "report this" ──
-  const capture = async () => {
-    if (stateRef.current !== 'LIVE_IDLE' || !cam.current || !camReady.current) return;
-    // wait out an in-flight Live frame so the evidence capture never collides with it
-    for (let i = 0; camBusy.current && i < 20; i++) await wait(50);
+  /** The evidence photo. */
+  const takeEvidence = async (): Promise<Media> => {
+    for (let i = 0; camBusy.current && i < 40; i++) await wait(50);
+    if (!cam.current || !camReady.current) throw new Error('camera not ready');
     camBusy.current = true;
-    hush();
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Animated.sequence([
-      Animated.timing(flash, { toValue: 1, duration: 60, useNativeDriver: true }),
-      Animated.timing(flash, { toValue: 0, duration: 260, useNativeDriver: true }),
-    ]).start();
     try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Animated.sequence([
+        Animated.timing(flash, { toValue: 1, duration: 60, useNativeDriver: true }),
+        Animated.timing(flash, { toValue: 0, duration: 260, useNativeDriver: true }),
+      ]).start();
       const shot = await cam.current.takePictureAsync({ quality: 0.9, shutterSound: false });
       if (!shot) throw new Error('no photo');
       const img = await shrink(shot.uri, shot.width, shot.height, 1600, 0.82);
-      dispatch({
-        type: 'SHUTTER',
-        snapshot: {
-          sessionId: newSessionId(),
-          photo: { uri: img.uri, width: img.width, height: img.height },
-          lat: where.lat,
-          lng: where.lng,
-          capturedAt: Date.now(),
-          context: live.recentConversation(),
-        },
-      });
-    } catch {
-      setLine('The camera didn’t take the photo. Try again.');
+      return { uri: img.uri, width: img.width, height: img.height };
     } finally {
       camBusy.current = false;
     }
   };
 
+  const snapshotOf = (photo: Media) => ({
+    sessionId: newSessionId(),
+    photo,
+    lat: where.lat,
+    lng: where.lng,
+    capturedAt: Date.now(),
+    context: [live.recentConversation(), visual.current && `What Mamdani saw on camera: ${visual.current}`].filter(Boolean).join('\n'),
+  });
+
+  /** Manual report, for when Live can't be reached. */
+  const manualCapture = async () => {
+    if (stateRef.current !== 'LIVE_IDLE') return;
+    visual.current = '';
+    try {
+      dispatch({ type: 'SHUTTER', snapshot: snapshotOf(await takeEvidence()) });
+    } catch {
+      setLine('The camera didn’t take the photo. Try again.');
+    }
+  };
+
   // ── the orchestrator: side effects per state ──
   const attempt = useRef(0);
-  const heard = useRef('');
   useEffect(() => {
     let alive = true;
     const p = portrait.current;
@@ -212,19 +335,42 @@ export function CaptureScreen() {
 
     switch (state) {
       case 'LIVE_IDLE': {
-        p?.act('watch');
         setLine(null);
         if (f.notice) {
+          setLine(f.notice);
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          void speak(f.notice, 'portrait');
           const t = setTimeout(() => dispatch({ type: 'DISMISS_NOTICE' }), 6000);
           return () => clearTimeout(t);
         }
         break;
       }
 
+      case 'CAPTURING': {
+        // let him finish "hold steady", then the cue, then the photo
+        (async () => {
+          p?.look('feed');
+          await audio.drain(6000);
+          if (!alive) return;
+          setLine('Hold steady…');
+          brackets.setValue(0);
+          Animated.timing(brackets, { toValue: 1, duration: 500, easing: Easing.bezier(0.2, 0.8, 0.2, 1), useNativeDriver: false }).start();
+          void Haptics.selectionAsync();
+          await wait(900);
+          if (!alive) return;
+          try {
+            dispatch({ type: 'SHUTTER', snapshot: snapshotOf(await takeEvidence()) });
+          } catch {
+            answer({ status: 'error' });
+            dispatch({ type: 'FAILED', message: 'The camera didn’t take the photo. Try again.' });
+          }
+        })();
+        return () => {
+          alive = false;
+        };
+      }
+
       case 'CAPTURED':
-        p?.look('feed');
+        brackets.setValue(0);
         dispatch({ type: 'PROCESSING' });
         break;
 
@@ -246,9 +392,13 @@ export function CaptureScreen() {
             }
             const res = await submitReport({ ...snap, answer: f.answer, final: !!f.answer });
             if (!alive || n !== attempt.current) return;
-            if (res.status === 'clarify') dispatch({ type: 'CLARIFY', question: res.question, options: res.options });
-            else if (res.status === 'rejected') dispatch({ type: 'FAILED', message: res.message });
-            else {
+            if (res.status === 'clarify') {
+              if (!answer({ status: 'needs_clarification', question: res.question, options: res.options })) tell(res.question);
+              dispatch({ type: 'CLARIFY', question: res.question, options: res.options });
+            } else if (res.status === 'rejected') {
+              if (!answer({ status: 'rejected', reason: res.message })) tell(res.message);
+              dispatch({ type: 'FAILED', message: res.message });
+            } else {
               details.current = { hazards: res.analysis.hazards, notes: res.analysis.accessibility.notes };
               void saveMine({
                 issueId: res.decision.issue.id,
@@ -263,7 +413,10 @@ export function CaptureScreen() {
               dispatch({ type: 'DECIDED', decision: res.decision });
             }
           } catch (e) {
-            if (alive) dispatch({ type: 'FAILED', message: e instanceof Error ? e.message : 'I couldn’t file that one. Try again.' });
+            if (!alive) return;
+            const message = e instanceof Error ? e.message : 'I couldn’t file that one. Try again.';
+            if (!answer({ status: 'error' })) tell(message);
+            dispatch({ type: 'FAILED', message });
           }
         })();
         return () => {
@@ -273,35 +426,15 @@ export function CaptureScreen() {
         };
       }
 
-      case 'REPORT_CLARIFYING': {
-        const q = f.clarify!;
-        heard.current = '';
-        let debounce: ReturnType<typeof setTimeout> | undefined;
-        (async () => {
-          await speak(q.question, 'portrait');
-          if (!alive) return;
-          setLine(q.question);
-          p?.act('listen');
-          // his question is out; whatever the resident says next is the answer
-          live.onHeard = (chunk) => {
-            heard.current += chunk;
-            clearTimeout(debounce);
-            debounce = setTimeout(() => {
-              const answer = heard.current.trim();
-              if (alive && answer) dispatch({ type: 'ANSWERED', answer });
-            }, 1500);
-          };
-        })();
-        return () => {
-          alive = false;
-          clearTimeout(debounce);
-          live.onHeard = undefined;
-        };
-      }
+      case 'REPORT_CLARIFYING':
+        setLine(f.clarify?.question ?? null);
+        p?.act('listen');
+        break;
 
       case 'REPORT_READY': {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setLine('Got it.');
+        setSaid('');
         brackets.setValue(0);
         Animated.timing(brackets, { toValue: 1, duration: 650, easing: Easing.bezier(0.2, 0.8, 0.2, 1), useNativeDriver: false }).start();
         (async () => {
@@ -367,34 +500,44 @@ export function CaptureScreen() {
         Animated.timing(brackets, { toValue: 2, duration: 400, useNativeDriver: false }).start();
         break;
 
-      case 'CHARACTER_SPEAKING':
-        // the animation timeline owns WHEN he speaks; the decision owns WHAT he says
-        void speak(d!.character.response, 'scene').then(() => alive && dispatch({ type: 'SPOKEN' }));
+      case 'CHARACTER_SPEAKING': {
+        // the animation timeline owns WHEN he speaks; the decision owns WHAT he says; Live is the voice
+        const text = d!.character.response;
+        (async () => {
+          if (live.status === 'live') {
+            const spoken = new Promise<void>((res) => (lineSpoken.current = res));
+            const facts = factsOf(d!);
+            if (!answer({ status: 'filed', work_order: d!.issue.id, say: text, report: facts }))
+              live.prompt(`The report was filed. ${facts} Say exactly this to the resident: "${text}"`);
+            await Promise.race([spoken, wait(14000)]);
+            lineSpoken.current = null;
+          } else {
+            setSaid(text);
+            await sayOnDevice(text, () => scene.current?.speaking(true));
+            scene.current?.speaking(false);
+          }
+          if (alive) dispatch({ type: 'SPOKEN' });
+        })();
         return () => {
           alive = false;
         };
+      }
 
       case 'REPORT_COMPLETE': {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // from here Live talks about the filed report, not a fresh read of the camera
-        const i = d!.issue;
-        live.tell(
-          `[App] The resident just filed a report. Work order ${i.id} (${d!.reportId}). Issue: ${category(i.type).label}, "${i.title}". ` +
-            `Summary: ${i.summary} Severity ${i.severity}/100, safety risk ${i.safetyRisk}/100, accessibility impact ${i.accessibilityImpact}. ` +
-            `Location: ${i.address}. Sent to ${i.department}. Status: ${i.status}. ${i.duplicateCount} resident report(s) of this problem so far. ` +
-            `You told them: "${d!.character.response}". Answer their questions about this report from these facts only. It is filed; there is nothing more to submit.`,
-        );
         const t = setTimeout(() => dispatch({ type: 'CONVERSE' }), 1400);
         return () => clearTimeout(t);
       }
 
       case 'LIVE_CONVERSATION':
-        if (!talkingRef.current) setLine(liveStatus === 'live' ? 'Ask Mamdani about this report.' : null);
+        setLine(null);
         break;
 
       case 'CHARACTER_RETURNING': {
+        audio.interrupt();
         hush();
         setLine(null);
+        setSaid('');
         (async () => {
           await scene.current?.exitLeft();
           scene.current?.clear();
@@ -407,8 +550,10 @@ export function CaptureScreen() {
             Animated.spring(win.sy, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 10 }),
           ]).start();
           await portrait.current?.enterFromLeft('suit');
-          live.tell('[App] The resident is starting a new report. You are back in your window watching the camera.');
-          if (alive) dispatch({ type: 'RETURNED' });
+          if (!alive) return;
+          dispatch({ type: 'RETURNED' });
+          visual.current = '';
+          live.prompt('The resident is starting a new report and you are back in your window. Ask them, in a few words, what else needs fixing.');
         })();
         return () => {
           alive = false;
@@ -427,10 +572,7 @@ export function CaptureScreen() {
     (globalThis as { __mamdani?: unknown }).__mamdani = {
       run: (photo: Media, decision: ReportDecision) => {
         devDecision.current = decision;
-        dispatch({
-          type: 'SHUTTER',
-          snapshot: { sessionId: newSessionId(), photo, lat: where.lat, lng: where.lng, capturedAt: Date.now(), context: '' },
-        });
+        dispatch({ type: 'SHUTTER', snapshot: { sessionId: newSessionId(), photo, lat: where.lat, lng: where.lng, capturedAt: Date.now(), context: '' } });
       },
       next: () => dispatch({ type: 'NEW_REPORT' }),
       state: () => stateRef.current,
@@ -439,13 +581,27 @@ export function CaptureScreen() {
   }, [where.lat, where.lng]);
 
   // ── layout ──
-  const mode = mamdaniMode(state);
   const snap = f.snapshot;
   const d = f.decision;
-  const box = d && snap ? boxOnScreen(d, snap.photo, W, viewH) : null;
+  const box = d && snap ? boxOnScreen(d, snap.photo, W, viewH) : state === 'CAPTURING' ? { x: W * 0.16, y: viewH * 0.22, w: W * 0.68, h: viewH * 0.5 } : null;
   const filed = state === 'REPORT_COMPLETE' || state === 'LIVE_CONVERSATION';
   const camAllowed = !!camPerm?.granted;
-  const hint = state === 'LIVE_IDLE' ? 'Show Mamdani the problem, then tap to report it.' : '';
+  const liveDown = liveStatus === 'unavailable' || micOk === false;
+
+  const caption = said && liveMaySpeak(state) ? said : null;
+  const status =
+    line ??
+    (state === 'LIVE_IDLE'
+      ? liveStatus === 'connecting' || liveStatus === 'off'
+        ? 'Mamdani is on his way…'
+        : liveDown
+          ? 'Mamdani can’t hear you right now. Tap the camera to report.'
+          : muted
+            ? 'You’re muted.'
+            : null
+      : state === 'LIVE_CONVERSATION'
+        ? 'Ask Mamdani anything about this report.'
+        : null);
 
   return (
     <View style={styles.root}>
@@ -496,7 +652,7 @@ export function CaptureScreen() {
           style={[StyleSheet.absoluteFill, { backgroundColor: '#fff', opacity: flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] }) }]}
         />
 
-        {state === 'LIVE_IDLE' && (
+        {(state === 'LIVE_IDLE' || state === 'CAPTURING') && (
           <View style={[styles.where, { top: insets.top + 10 }]} accessibilityLiveRegion="polite">
             <PinIcon size={13} />
             <Text style={styles.whereText} numberOfLines={1}>
@@ -507,11 +663,17 @@ export function CaptureScreen() {
       </Animated.View>
 
       {/* ── the control surface ── */}
-      <View style={[styles.controls, { paddingBottom: Math.max(16, insets.bottom) }]}>
+      <View style={[styles.controls, { paddingBottom: Math.max(14, insets.bottom) }]}>
         <View style={styles.lineWrap}>
-          <Text style={[styles.line, !f.notice && !line && styles.hint]} numberOfLines={2} accessibilityLiveRegion="polite">
-            {f.notice ?? line ?? hint}
-          </Text>
+          {caption ? (
+            <Text style={styles.caption} numberOfLines={3} accessibilityLiveRegion="polite">
+              {caption}
+            </Text>
+          ) : (
+            <Text style={[styles.line, !line && styles.hint]} numberOfLines={2} accessibilityLiveRegion="polite">
+              {status ?? ''}
+            </Text>
+          )}
           {state === 'REPORT_CLARIFYING' && f.clarify && (
             <View style={styles.options}>
               {f.clarify.options.map((o) => (
@@ -530,11 +692,30 @@ export function CaptureScreen() {
                 <Confirmation decision={d} />
               </Pressable>
             ) : (
+              micOk !== false && (
+                <Pressable
+                  style={[styles.round, muted && styles.roundOn]}
+                  onPress={() => setMuted((m) => !m)}
+                  accessibilityRole="button"
+                  accessibilityLabel={muted ? 'Unmute' : 'Mute'}
+                >
+                  <MicGlyph off={muted} />
+                </Pressable>
+              )
+            )}
+          </View>
+
+          <View style={styles.center}>
+            {filed ? (
+              <Pressable style={styles.newReport} onPress={() => dispatch({ type: 'NEW_REPORT' })} accessibilityRole="button" accessibilityLabel="New report">
+                <CameraGlyph />
+              </Pressable>
+            ) : (
               <PortraitWindow
                 sx={win.sx}
                 sy={win.sy}
                 hidden={mode === 'SCENE'}
-                listening={micOpen(state) && hearing && !talking}
+                listening={micOpen(state) && hearing && !speaking && !muted}
                 live={liveStatus === 'live'}
                 onStage={(s) => {
                   portrait.current = s;
@@ -544,25 +725,16 @@ export function CaptureScreen() {
             )}
           </View>
 
-          {filed ? (
-            <Pressable style={styles.newReport} onPress={() => dispatch({ type: 'NEW_REPORT' })} accessibilityRole="button" accessibilityLabel="New report">
-              <CameraGlyph />
-            </Pressable>
-          ) : (
-            <Shutter
-              disabled={state !== 'LIVE_IDLE' || !camAllowed}
-              onPressIn={() => {
-                portrait.current?.look('shutter', 650);
-                void Haptics.selectionAsync();
-              }}
-              onPress={capture}
-            />
-          )}
-
           <View style={[styles.side, { alignItems: 'flex-end' }]}>
-            <Pressable style={styles.thumb} onPress={() => setMineOpen(true)} accessibilityRole="button" accessibilityLabel="Your reports">
-              {lastPhoto ? <Image source={{ uri: lastPhoto }} style={StyleSheet.absoluteFill} /> : <ListGlyph />}
-            </Pressable>
+            {liveDown && state === 'LIVE_IDLE' ? (
+              <Pressable style={styles.newReport} onPress={manualCapture} accessibilityRole="button" accessibilityLabel="Take the photo">
+                <CameraGlyph />
+              </Pressable>
+            ) : (
+              <Pressable style={styles.thumb} onPress={() => setMineOpen(true)} accessibilityRole="button" accessibilityLabel="Your reports">
+                {lastPhoto ? <Image source={{ uri: lastPhoto }} style={StyleSheet.absoluteFill} /> : <ListGlyph />}
+              </Pressable>
+            )}
           </View>
         </View>
       </View>
@@ -634,28 +806,6 @@ function PortraitWindow({
   );
 }
 
-function Shutter({ disabled, onPressIn, onPress }: { disabled: boolean; onPressIn: () => void; onPress: () => void }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  return (
-    <Pressable
-      disabled={disabled}
-      onPressIn={() => {
-        onPressIn();
-        Animated.spring(scale, { toValue: 0.88, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
-      }}
-      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 12 }).start()}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="Report this"
-      accessibilityState={{ disabled }}
-      style={styles.shutter}
-    >
-      <View style={[styles.shutterRing, disabled && { opacity: 0.35 }]} />
-      <Animated.View style={[styles.shutterCore, disabled && { opacity: 0.35 }, { transform: [{ scale }] }]} />
-    </Pressable>
-  );
-}
-
 function Confirmation({ decision }: { decision: ReportDecision }) {
   const pop = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -703,7 +853,7 @@ function Shimmer({ progress, width }: { progress: Animated.Value; width: number 
   );
 }
 
-/** Focus brackets close in on the problem when the decision lands, then step aside for Mamdani. */
+/** Focus brackets close in on the problem (or the frame, while he says "hold steady"). */
 function Brackets({ box, progress, width, height }: { box: { x: number; y: number; w: number; h: number }; progress: Animated.Value; width: number; height: number }) {
   const pad = 10;
   const to = { x: box.x - pad, y: box.y - pad, w: box.w + pad * 2, h: box.h + pad * 2 };
@@ -747,6 +897,17 @@ function CameraGlyph() {
   );
 }
 
+function MicGlyph({ off }: { off: boolean }) {
+  const c = off ? C.asphalt : '#fff';
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={2} strokeLinecap="round">
+      <Rect x={9} y={3} width={6} height={11} rx={3} />
+      <Path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+      {off && <Line x1={4} y1={4} x2={20} y2={20} />}
+    </Svg>
+  );
+}
+
 function ListGlyph() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth={2} strokeLinecap="round">
@@ -779,22 +940,23 @@ const styles = StyleSheet.create({
   },
   whereText: { fontFamily: F.uiSemi, fontSize: 13, color: '#fff', paddingTop: 2, flexShrink: 1 },
   controls: { flex: 1, justifyContent: 'space-between', paddingTop: 14 },
-  lineWrap: { minHeight: 44, paddingHorizontal: 28, alignItems: 'center' },
+  lineWrap: { minHeight: 64, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center' },
+  caption: { fontFamily: F.uiBold, fontSize: 17, lineHeight: 23, color: '#fff', textAlign: 'center' },
   line: { fontFamily: F.uiSemi, fontSize: 15, lineHeight: 21, color: 'rgba(255,255,255,0.9)', textAlign: 'center' },
   hint: { color: 'rgba(255,255,255,0.5)' },
   options: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 10 },
   option: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.14)' },
   optionText: { fontFamily: F.uiBold, fontSize: T.sm, color: '#fff', paddingTop: 2 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 },
   side: { flex: 1, justifyContent: 'center' },
+  center: { width: WINDOW + 8, alignItems: 'center', justifyContent: 'center' },
   window: { width: WINDOW, height: WINDOW, borderRadius: WINDOW / 2, padding: 3, backgroundColor: 'rgba(255,255,255,0.14)' },
   windowListening: { backgroundColor: ACCENT },
   windowInner: { flex: 1, borderRadius: WINDOW / 2, overflow: 'hidden' },
-  liveDot: { position: 'absolute', right: 9, top: 9, width: 11, height: 11, borderRadius: 6, backgroundColor: ACCENT, borderWidth: 2, borderColor: '#000' },
-  shutter: { width: 80, height: 80, alignItems: 'center', justifyContent: 'center' },
-  shutterRing: { position: 'absolute', width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: '#fff' },
-  shutterCore: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#fff' },
-  newReport: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  liveDot: { position: 'absolute', right: 11, top: 11, width: 12, height: 12, borderRadius: 6, backgroundColor: ACCENT, borderWidth: 2, borderColor: '#000' },
+  round: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
+  roundOn: { backgroundColor: '#fff' },
+  newReport: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   thumb: {
     width: 46,
     height: 46,

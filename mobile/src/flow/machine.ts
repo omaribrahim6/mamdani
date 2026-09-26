@@ -5,8 +5,9 @@ import type { Media } from '../api';
 // whether the mic and camera stream — all of it is derived from `state`, never from loose booleans.
 
 export type FlowState =
-  | 'LIVE_IDLE' // camera up, Mamdani in his window, Live can talk
-  | 'CAPTURED' // shutter pressed: snapshot frozen
+  | 'LIVE_IDLE' // camera up, Mamdani in his window, talking it through with the resident
+  | 'CAPTURING' // he decided to report it: "hold steady" and the evidence photo
+  | 'CAPTURED' // snapshot frozen
   | 'REPORT_PROCESSING' // one Gemini call is deciding the report
   | 'REPORT_CLARIFYING' // Mamdani asked which problem; nothing committed yet
   | 'REPORT_READY' // committed; the decision is in hand
@@ -38,6 +39,7 @@ export interface Flow {
 }
 
 export type FlowEvent =
+  | { type: 'CAPTURE' }
   | { type: 'SHUTTER'; snapshot: Snapshot }
   | { type: 'PROCESSING' }
   | { type: 'CLARIFY'; question: string; options: string[] }
@@ -60,8 +62,10 @@ export const initialFlow: Flow = { state: 'LIVE_IDLE', snapshot: null, decision:
 export function flow(f: Flow, e: FlowEvent): Flow {
   const at = (...states: FlowState[]) => states.includes(f.state);
   switch (e.type) {
+    case 'CAPTURE':
+      return at('LIVE_IDLE') ? { ...initialFlow, state: 'CAPTURING' } : f;
     case 'SHUTTER':
-      return at('LIVE_IDLE') ? { ...initialFlow, state: 'CAPTURED', snapshot: e.snapshot } : f;
+      return at('LIVE_IDLE', 'CAPTURING') ? { ...initialFlow, state: 'CAPTURED', snapshot: e.snapshot } : f;
     case 'PROCESSING':
       return at('CAPTURED') ? { ...f, state: 'REPORT_PROCESSING' } : f;
     case 'CLARIFY':
@@ -71,7 +75,7 @@ export function flow(f: Flow, e: FlowEvent): Flow {
     case 'DECIDED':
       return at('REPORT_PROCESSING') ? { ...f, state: 'REPORT_READY', decision: e.decision, clarify: null } : f;
     case 'FAILED':
-      return at('CAPTURED', 'REPORT_PROCESSING', 'REPORT_CLARIFYING') ? { ...initialFlow, notice: e.message } : f;
+      return at('CAPTURING', 'CAPTURED', 'REPORT_PROCESSING', 'REPORT_CLARIFYING') ? { ...initialFlow, notice: e.message } : f;
     case 'EXIT':
       return at('REPORT_READY') ? { ...f, state: 'CHARACTER_EXITING' } : f;
     case 'ENTER':
@@ -103,11 +107,13 @@ export function mamdaniMode(s: FlowState): MamdaniMode {
   return 'PORTRAIT';
 }
 
-/** Gemini Live stays connected throughout; this is whether its replies may reach the user. */
-export const liveMaySpeak = (s: FlowState) => s === 'LIVE_IDLE' || s === 'LIVE_CONVERSATION';
-/** Whether the mic streams to Live (clarifying: we need the answer, but Live's reply is suppressed). */
-export const micOpen = (s: FlowState) => s === 'LIVE_IDLE' || s === 'REPORT_CLARIFYING' || s === 'LIVE_CONVERSATION';
-/** Only a live camera is shown to Live. After the shutter, the report is about the snapshot. */
+/** Gemini Live stays connected throughout; this is whether his voice may reach the user. While the
+ *  report is being processed and he's walking into the photo, the orchestrator owns him. */
+export const liveMaySpeak = (s: FlowState) =>
+  s === 'LIVE_IDLE' || s === 'REPORT_CLARIFYING' || s === 'CHARACTER_SPEAKING' || s === 'REPORT_COMPLETE' || s === 'LIVE_CONVERSATION';
+/** Whether the mic streams to Live. */
+export const micOpen = (s: FlowState) => s === 'LIVE_IDLE' || s === 'REPORT_CLARIFYING' || s === 'REPORT_COMPLETE' || s === 'LIVE_CONVERSATION';
+/** Only a live camera is shown to Live. After the photo, the report is about the snapshot. */
 export const framesOpen = (s: FlowState) => s === 'LIVE_IDLE';
-/** The frozen photo replaces the camera from the shutter until he's back in his window. */
-export const showsSnapshot = (s: FlowState) => s !== 'LIVE_IDLE';
+/** The frozen photo replaces the camera from the capture until he's back in his window. */
+export const showsSnapshot = (s: FlowState) => s !== 'LIVE_IDLE' && s !== 'CAPTURING';

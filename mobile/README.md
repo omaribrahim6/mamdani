@@ -1,41 +1,42 @@
 # Mamdani — phone app
 
-The citizen side of Mamdani as a native app for **Expo Go** (SDK 57). The camera is up the moment it
-opens and tiny Mamdani is already in his round window, watching it through Gemini Live. Talk to him
-all you like: nothing is filed until you tap the shutter. The shutter freezes the photo, location,
-time and what you just said into one report; one Gemini decision comes back; Mamdani suits up,
-walks out of his window and into your photo, marks the problem and tells you it's reported. Then you
-can keep talking to him about that report.
+Open it and tiny Mamdani, in his round window, asks what the problem is. Talk it through while he
+watches the camera (Gemini Live on Vertex AI). When he has heard and seen enough, he says "hold
+steady" and takes the evidence photo himself. One Gemini decision comes back; he suits up, walks out
+of his window and into your photo, does what the job needs (flag, cone, clipboard…) and tells you
+it's reported — in his own Gemini Live voice. Then you can keep talking to him about it.
 
-How it's put together:
+## Run it on an iPhone (development build)
 
-- `src/flow/machine.ts`: the single state machine (`LIVE_IDLE` → … → `LIVE_CONVERSATION`). Mamdani's
-  mode, whether Live may speak, and whether the mic and camera stream are all derived from it.
-- `src/live/`: Gemini Live over a WebSocket (ephemeral token from `/api/live`), mic PCM via expo-audio.
-- `src/voice.ts`: one voice for every line (ElevenLabs via `/api/voice`).
-- The web app's `/api/submit` analyzes and commits exactly once per shutter press (session id).
-- The 3D mayor is the same three.js code as the web (`components/mayor`), drawn through `expo-gl`.
+Needs a Mac with Xcode, an Apple developer account, and the phone plugged in (Developer Mode on).
+Expo Go is not supported: live audio streaming uses native code.
 
-## Run it on your phone
-
-1. Install **Expo Go** from the App Store or Play Store.
-2. From this folder:
-
-   ```bash
-   npm install
-   npm start
-   ```
-
-3. Scan the QR code: with the Camera app on iPhone, or from inside Expo Go on Android.
-
-If the phone can't reach your laptop (venue Wi-Fi often blocks it), use a tunnel:
-
-```bash
-npm run tunnel
+```sh
+git checkout omar && git pull
+cd mobile
+npm install          # also applies patches/ (Xcode 26.2 fix for expo-modules-jsi)
+npm run ios:device   # regenerates ios/ from app.json, builds and installs on the phone
 ```
 
-## Pointing at a different server
+`ios:device` wipes and regenerates the `ios/` folder, so a native project left over from another
+branch can't get in the way. If Xcode asks for a signing team, pick yours (bundle id
+`com.mamdani.reporting`). After the first install, day-to-day:
 
-Reports go to `https://mamdani.vercel.app` by default. To use a local `npm run dev`, copy
-`.env.example` to `.env` and set `EXPO_PUBLIC_API_URL` to your laptop's LAN address, e.g.
-`http://192.168.1.20:3000`.
+```sh
+npm start            # Metro for the installed dev app
+```
+
+Nothing to configure: the app talks to the deployed backend at https://mamdani.vercel.app
+(override with `EXPO_PUBLIC_API_URL` in `mobile/.env` to use a local `npm run dev`).
+
+## How it's put together
+
+- `src/flow/machine.ts` — the single state machine (`LIVE_IDLE` → `CAPTURING` → … → `LIVE_CONVERSATION`).
+  Mamdani's mode, when his voice may be heard, and mic/camera streaming are all derived from it.
+- `src/live/client.ts` — Gemini Live over a WebSocket (short-lived token from `/api/live`), with the
+  `report_issue` tool he calls when he decides to take the photo.
+- `src/live/audio.ts` — mic in / his voice out (react-native-audio-api), echo-safe, with the loudness
+  that moves his mouth.
+- `/api/submit` (web app) — screens, analyzes and files the photo exactly once, and decides what he
+  wears, does and says. Afterwards his answers about the report are checked against the record.
+- The 3D Mamdani is shared with the web (`components/mayor`), drawn through `expo-gl`.
