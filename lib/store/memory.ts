@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { category, CATEGORY_IDS, type CategoryId } from '../categories';
 import { metersBetween, priorityOf } from '../priority';
 import { SEED } from '../seed';
+import { withStandard } from '../standards';
 import type { Analysis, CityStats, Issue, Report, ReportResponse, Status } from '../types';
 import { STATUS_LABEL } from '../types';
 import type { NewIssue, Store } from './types';
@@ -24,7 +25,7 @@ function reprioritize(i: Issue, now = Date.now()) {
   const p = priorityOf(i, now);
   i.priority = p.total;
   i.priorityParts = p.parts;
-  return i;
+  return withStandard(i);
 }
 
 function seed(): State {

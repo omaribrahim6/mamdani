@@ -3,6 +3,7 @@ import { category, type CategoryId } from '../categories';
 import { metersBetween, priorityOf } from '../priority';
 import type { CityStats, Issue, Report, ReportResponse, Status } from '../types';
 import { STATUS_LABEL } from '../types';
+import { withStandard } from '../standards';
 import { pgConfig } from './pg-url';
 import type { NewIssue, Store } from './types';
 
@@ -41,7 +42,7 @@ function toIssue(r: Row, now = Date.now()): Issue {
     updatedAt: ms(r.updated_at)!,
   };
   const p = priorityOf(base, now);
-  return { ...base, priority: p.total, priorityParts: p.parts };
+  return withStandard({ ...base, priority: p.total, priorityParts: p.parts });
 }
 
 function toReport(r: Row): Report {

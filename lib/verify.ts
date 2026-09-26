@@ -1,6 +1,7 @@
 import { hasAI, json, MODELS } from './ai';
 import { category } from './categories';
 import { accessToken, project, serviceAccount } from './google';
+import { standardFacts } from './standards';
 import { store } from './store';
 import { STATUS_LABEL, type Issue } from './types';
 
@@ -35,6 +36,7 @@ export function factsFor(i: Issue): string[] {
     `It is ranked by a priority score of ${Math.round(i.priority)}, built from severity, safety risk, accessibility, how many residents reported it, and how long it has been open.`,
     'What happens next: the department reviews the report, assigns a crew, the crew fixes it, and the resident can follow each step in My reports in the app.',
   ];
+  facts.push(...standardFacts(i));
   if (i.hazards.length) facts.push(`Hazards noted: ${i.hazards.join(', ')}.`);
   for (const e of i.events.slice(-6)) facts.push(`${date(e.at)}: ${e.note}.`);
   return facts;

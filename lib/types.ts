@@ -115,6 +115,19 @@ export interface Issue {
   priorityParts: PriorityParts;
   events: IssueEvent[];
   updatedAt: number;
+  /** the city's official service standard for this kind of problem (derived on read, lib/standards.ts) */
+  standard?: IssueStandard;
+  /** firstReportedAt + the standard's target; null when the standard has no number */
+  dueAt?: number | null;
+}
+
+/** The official City of Ottawa / Ontario service standard for an issue's category, with its source. */
+export interface IssueStandard {
+  text: string;
+  targetHours: number | null;
+  sourceUrl: string;
+  sourceTitle: string;
+  roadClassNote?: string;
 }
 
 /** Returned to the citizen after they submit. */
@@ -154,6 +167,8 @@ export interface ReportDecision {
     duplicateCount: number; // how many residents have reported this problem, including this one
     duplicate: boolean;
     box: Analysis['box'];
+    standard?: IssueStandard;
+    dueAt?: number | null;
   };
   character: CharacterDecision;
   confidence: number;

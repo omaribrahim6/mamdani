@@ -1,0 +1,125 @@
+{
+  "fetchedAt": "2026-09-26T20:12:41.555Z",
+  "model": "gemini-3.8-flash",
+  "standards": {
+    "pothole": {
+      "category": "pothole",
+      "standard": "If a pothole exceeds both the surface area and depth set out in Table 1, 2 or 3 to this section, as the case may be, the minimum standard is to repair the pothole within the time set out in Table 1, 2 or 3, as appropriate, after becoming aware of the fact.",
+      "targetHours": 168,
+      "roadClassNote": "Under O. Reg. 239/02 Table 1 (Potholes on Paved Surface of Roadway, depth > 8 cm): Class 1 (area > 600 cm²): 4 days (96 hours); Class 2 (area > 800 cm²): 4 days (96 hours); Class 3 (area > 1,000 cm²): 7 days (168 hours); Class 4 (area > 1,000 cm²): 14 days (336 hours); Class 5 (area > 1,000 cm²): 30 days (720 hours). For non-paved surfaces (Table 2): Class 3: 7 days; Class 4: 14 days; Class 5: 30 days. For shoulders (Table 3): Class 1 & 2: 7 days; Class 3: 14 days; Class 4: 30 days; Class 5: 60 days.",
+      "sourceUrl": "https://www.ontario.ca/laws/regulation/020239",
+      "sourceTitle": "O. Reg. 239/02: MINIMUM MAINTENANCE STANDARDS FOR MUNICIPAL HIGHWAYS",
+      "confidence": "high",
+      "grounding": []
+    },
+    "sidewalk": {
+      "category": "sidewalk",
+      "standard": "If a surface discontinuity on or within a sidewalk exceeds two centimetres, the standard is to treat the surface discontinuity within 14 days after acquiring actual knowledge of the fact.",
+      "targetHours": 336,
+      "sourceUrl": "https://www.ontario.ca/laws/regulation/020239",
+      "sourceTitle": "O. Reg. 239/02: MINIMUM MAINTENANCE STANDARDS FOR MUNICIPAL HIGHWAYS",
+      "confidence": "high",
+      "grounding": []
+    },
+    "streetlight": {
+      "category": "streetlight",
+      "standard": "For conventional illumination, if three or more consecutive luminaires on the same side of a highway are not functioning, or if 30 per cent or more of the luminaires on any kilometre of highway are not functioning, the standard is to repair the luminaires within the time set out in the Table to this section after becoming aware of the fact.",
+      "targetHours": 336,
+      "roadClassNote": "Class 1: 7 days (168 hours); Class 2: 7 days (168 hours); Class 3: 14 days (336 hours); Class 4: 14 days (336 hours); Class 5: 14 days (336 hours). Note: Luminaires are deemed to be in a state of repair if non-functioning consecutive luminaires on the same side do not exceed two and more than 70% per kilometre are functioning; for Class 1 highways with speed limit ≥ 90 km/h where > 50% fail, or high-mast consecutive pole outages, the standard is to deploy resources as soon as practicable.",
+      "sourceUrl": "https://www.ontario.ca/laws/regulation/020239",
+      "sourceTitle": "O. Reg. 239/02: MINIMUM MAINTENANCE STANDARDS FOR MUNICIPAL HIGHWAYS",
+      "confidence": "high",
+      "grounding": [],
+      "reviewNote": "Standard only applies when 3+ consecutive luminaires are out (or 30%+ per km); a single outage is not covered. Quoted, but the standard sentence states this condition."
+    },
+    "traffic": {
+      "category": "traffic",
+      "standard": "If a regulatory sign or warning sign is illegible, improperly oriented, obscured or missing, the standard is to repair or replace the sign within the time set out in the Table to this section after becoming aware of the fact.",
+      "targetHours": 504,
+      "roadClassNote": "Class 1: 7 days (168 hours); Class 2: 14 days (336 hours); Class 3: 21 days (504 hours); Class 4: 30 days (720 hours); Class 5: 30 days (720 hours). For priority signs under s. 11 and defective traffic control signal systems under s. 13, the standard is to deploy resources as soon as practicable.",
+      "sourceUrl": "https://www.ontario.ca/laws/regulation/020239",
+      "sourceTitle": "O. Reg. 239/02: MINIMUM MAINTENANCE STANDARDS FOR MUNICIPAL HIGHWAYS",
+      "confidence": "high",
+      "grounding": [],
+      "reviewNote": "Covers regulatory/warning signs only; defective traffic signals are \"as soon as practicable\" with no number. Quoted, with the caveat in roadClassNote."
+    },
+    "bike_lane": {
+      "category": "bike_lane",
+      "standard": "After snow accumulation has ended, the standard is to address snow accumulation so as to reduce the snow to a depth less than or equal to the prescribed depth within the prescribed time to provide a minimum bicycle lane width of the lesser of 1 metre or the actual bicycle lane width.",
+      "targetHours": 24,
+      "roadClassNote": "Class 1: 2.5 cm depth within 8 hours; Class 2: 5 cm depth within 12 hours; Class 3: 8 cm depth within 24 hours; Class 4: 8 cm depth within 24 hours; Class 5: 10 cm depth within 24 hours. For non-snow roadway debris under Section 9, resources must be deployed as soon as practicable without a specified hourly target.",
+      "sourceUrl": "https://www.ontario.ca/laws/regulation/020239",
+      "sourceTitle": "O. Reg. 239/02: MINIMUM MAINTENANCE STANDARDS FOR MUNICIPAL HIGHWAYS",
+      "confidence": "high",
+      "grounding": [
+        "ontario.ca",
+        "greenstone.ca"
+      ],
+      "needsReview": true,
+      "reviewNote": "Source is the O. Reg. 239/02 winter snow-clearing standard only; the app category is any blocked bike lane (cars, debris), which has no hourly target. Not quoted until a human confirms."
+    },
+    "water": {
+      "category": "water",
+      "standard": "The City of Ottawa states that crews will work to restore water services to affected properties as soon as possible, with estimated timelines provided via door hanger notices once repairs are assessed, but publishes no fixed hourly response or repair standard.",
+      "targetHours": null,
+      "sourceUrl": "https://ottawa.ca/en/living-ottawa/drinking-water-and-sewer-services/water-outages-and-boil-water-advisories",
+      "sourceTitle": "Water service interruptions | City of Ottawa",
+      "confidence": "low",
+      "needsReview": true,
+      "grounding": []
+    },
+    "drainage": {
+      "category": "drainage",
+      "standard": "Priority A – obstructed drainage causing flooding that poses an immediate safety hazard is to be completed within 4 hours.",
+      "targetHours": 4,
+      "roadClassNote": "Priority A (obstructed drainage causing flooding that poses an immediate safety hazard): completed within 4 hours; Priority B (partially obstructed drainage causing intermittent water backups that do not pose a safety hazard, but that over extended periods of time could impact the quality of the infrastructure): completed within 30 days; Priority C (some deterioration of the drainage system, but no safety hazard): added to ditch maintenance list to be completed as soon as practicable.",
+      "sourceUrl": "https://ottawa.ca/en/living-ottawa/rural-ottawa/ditches-and-drains/ditch-maintenance",
+      "sourceTitle": "Ditch maintenance",
+      "confidence": "high",
+      "grounding": [],
+      "needsReview": true,
+      "reviewNote": "Source is the rural ditch-maintenance page, and 4 h is Priority A (flooding that is an immediate safety hazard). Most urban drain/catch-basin reports would be Priority B (30 days) or C. Not quoted until a human confirms."
+    },
+    "waste": {
+      "category": "waste",
+      "standard": "The City of Ottawa requires that missed collection of accepted items be reported within 48 hours of the scheduled collection day with material left at the curb to be collected, but does not publish a specific numeric response time standard in hours for completion.",
+      "targetHours": null,
+      "sourceUrl": "https://ottawa.ca/en/3-1-1/report-or-request/garbage-recycling-and-organic-waste/report-problem-garbage-collection",
+      "sourceTitle": "Report a problem with garbage collection | City of Ottawa",
+      "confidence": "low",
+      "needsReview": true,
+      "grounding": []
+    },
+    "graffiti": {
+      "category": "graffiti",
+      "standard": "An officer who finds a contravention of this by-law may give written notice to the owner of the property requiring compliance with this by-law within the time period specified in the notice but no sooner than 7 calendar days after the notice is given.",
+      "targetHours": 168,
+      "sourceUrl": "https://ottawa.ca/en/graffiti-management-law-no-2008-01",
+      "sourceTitle": "Graffiti Management (By-law No. 2008-01)",
+      "confidence": "high",
+      "grounding": [],
+      "needsReview": true,
+      "reviewNote": "By-law 2008-01 sets a minimum 7-day notice period for owners to comply, not a City removal target. 168 h is a floor, not a due date. Not quoted until a human confirms."
+    },
+    "tree": {
+      "category": "tree",
+      "standard": "The City of Ottawa states that Forestry Services is responsible for maintaining all City-owned trees, directing residents to call 3-1-1 immediately to report an immediate hazard or a dangerous tree or limb blocking a roadway, while general maintenance requests are scheduled on a priority basis without a published numerical target timeframe.",
+      "targetHours": null,
+      "sourceUrl": "https://ottawa.ca/en/living-ottawa/environment-conservation-and-climate/trees-and-urban-forests/requests-forestry-services/request-city-tree-maintenance",
+      "sourceTitle": "Request City tree maintenance | City of Ottawa",
+      "confidence": "low",
+      "needsReview": true,
+      "grounding": []
+    },
+    "other": {
+      "category": "other",
+      "standard": "The City of Ottawa states that non-urgent service requests submitted online are actioned with the same priority as phone requests, but does not publish a universal response or completion time standard for general 311 service requests.",
+      "targetHours": null,
+      "sourceUrl": "https://ottawa.ca/en/3-1-1/services-phone-e-mail-and-person/general-inquiries",
+      "sourceTitle": "Services by phone, e-mail and in person - General inquiries",
+      "confidence": "low",
+      "needsReview": true,
+      "grounding": []
+    }
+  }
+}

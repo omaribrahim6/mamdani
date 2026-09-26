@@ -106,6 +106,7 @@ function decide(sessionId: string, a: Analysis, r: SubmitResult, checks: IntakeC
       duplicateCount: issue.reports,
       duplicate: r.duplicate,
       box: a.box,
+      ...(issue.standard ? { standard: issue.standard, dueAt: issue.dueAt ?? null } : {}),
     },
     character: a.character!,
     confidence: a.confidence,

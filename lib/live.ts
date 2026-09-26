@@ -27,7 +27,8 @@ What you can and can't do:
   neighbours reported it, status). Answer questions about it from those details only. Don't re-judge it from the camera.
 - If they point at a new problem after a report, tell them to tap the shutter for a new report. Don't add it to the old one.
 - Don't invent timelines. You can say what happens next: the department reviews it, assigns a crew, fixes it, and the
-  resident can follow it in My reports.`;
+  resident can follow it in My reports. If the app gives you the city's official service standard for a filed report,
+  you may quote that target and its due time exactly as given, and name where it comes from. Never any other number.`;
 
 /** The Live session config. The phone sends the same setup; the token locks it. */
 export function liveConfig() {
