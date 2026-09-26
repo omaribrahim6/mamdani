@@ -4,17 +4,23 @@ Report civic problems with a photo and a conversation. An animated inspector hel
 
 ## Architecture
 
-The web and mobile apps share a Next.js backend that analyzes evidence, matches duplicate issues, and stores reports. Gemini models power the AI interaction, with mobile connecting directly to Gemini Live for camera and voice conversation. The web app reads generated replies using the browser's built-in speech synthesis.
+Target reporting flow: the phone frontend sends photos, video, and audio to Gemini. Gemini responds as Mamdani and prepares structured issue data for TigerData Postgres. The government dashboard reads those reports, with admin access through Auth0.
 
 ```mermaid
-flowchart TD
-    Web["Web app · Next.js"] <-->|Photos and report status| Backend
-    Mobile["Mobile app · Expo"] <-->|Photos, report status and Live setup| Backend
-    Mobile <-->|Camera frames and voice| Live["Gemini Live"]
-    Backend["Next.js API and backend workflows"] <-->|Analysis, screening, embeddings and answer checks| AI["Google AI services"]
-    Backend <-->|Coordinates and address| Geo["Nominatim geocoding"]
-    Backend <-->|Issues, reports and evidence| DB["PostgreSQL / TimescaleDB"]
-    Backend <-->|Without database configuration| Demo["Seeded in-memory store"]
+flowchart LR
+    Phone["Phone frontend"]
+    AI["Gemini AI processing<br/>Photo · Video · Audio"]
+    DB[("TigerData<br/>Postgres")]
+
+    subgraph Government["Government dashboard"]
+        direction BT
+        Auth["Auth0<br/>Admin email + password"] -->|Admin login| Dashboard["Reports and map"]
+    end
+
+    Phone -->|Input| AI
+    AI -->|Mamdani response| Phone
+    AI -->|"ID · Severity · AI confidence<br/>Location · Description<br/>Cost · ROI<br/>Picture / video / audio · Tag"| DB
+    DB --> Government
 ```
 
 ## What it does
