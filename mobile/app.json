@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "Mamdani",
+    "slug": "mamdani",
+    "scheme": "mamdani",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#26292c",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "ca.hackthehill.mamdani"
+    },
+    "android": {
+      "package": "ca.hackthehill.mamdani",
+      "adaptiveIcon": {
+        "backgroundColor": "#26292c",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-audio",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        { "backgroundColor": "#26292c", "image": "./assets/splash-icon.png", "imageWidth": 160 }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Mamdani looks at the problem you point your camera at.",
+          "microphonePermission": "Hold the shutter to tell Mamdani what’s wrong.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-location",
+        { "locationWhenInUsePermission": "Your report needs the spot where the problem is, so the crew can find it." }
+      ],
+      [
+        "expo-image-picker",
+        { "photosPermission": "Send a photo or video of the problem you already took." }
+      ]
+    ]
+  }
+}
