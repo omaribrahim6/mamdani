@@ -10,6 +10,24 @@ export class LiveAudio {
   private muteUntil = 0;
   private interruption: { remove(): void } | null = null;
   private starting: Promise<void> | null = null;
+  private playbackWaiters = new Set<() => void>();
+
+  private finishPlayback() {
+    for (const resolve of this.playbackWaiters) resolve();
+    this.playbackWaiters.clear();
+  }
+
+  drain(): Promise<void> {
+    if (this.disposed || !this.queued.size) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const done = () => { clearTimeout(timer); this.playbackWaiters.delete(done); resolve(); };
+      const timer = setTimeout(() => {
+        this.playbackWaiters.delete(done);
+        reject(new Error('Voice playback did not finish. Please start again.'));
+      }, 18000);
+      this.playbackWaiters.add(done);
+    });
+  }
 
   constructor(private speaking: (value: boolean) => void, private fail: (message: string) => void) {}
 
@@ -35,7 +53,7 @@ export class LiveAudio {
     this.player.connect(this.context.destination);
     this.player.onBufferEnded = ({ bufferId }) => {
       this.queued.delete(bufferId);
-      if (!this.queued.size) { this.muteUntil = Date.now() + 150; this.speaking(false); }
+      if (!this.queued.size) { this.muteUntil = Date.now() + 150; this.speaking(false); this.finishPlayback(); }
     };
     this.player.start(0, 0);
     this.recorder.onError(() => this.fail('The microphone stopped. Please start again.'));
@@ -67,6 +85,7 @@ export class LiveAudio {
   interrupt() {
     this.player?.clearBuffers();
     this.queued.clear();
+    this.finishPlayback();
     this.speaking(false);
   }
 

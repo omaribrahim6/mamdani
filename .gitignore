@@ -9,3 +9,7 @@ next-env.d.ts
 
 .vercel
 .env*
+
+!.env.example
+
+__pycache__/

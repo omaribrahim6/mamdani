@@ -34,6 +34,7 @@ def make_relay():
     relay = Relay(ws, location())
     relay.transcript = "There is a pothole in the road."
     relay.frames_sent = 1
+    relay.problem_asked = relay.resident_answered = relay.announced = True
     async def capture(event):
         if event["type"] == "capture_photo":
             relay.photo.set_result(photo_base64())
@@ -176,7 +177,7 @@ def test_outgoing_transcription_audio_and_tool_flow():
         relay.post_report = AsyncMock(return_value=httpx.Response(201, json={"status": "success"}))
         events = [types.LiveServerMessage(server_content=types.LiveServerContent(
             input_transcription=types.Transcription(text="There is a pothole."),
-            output_transcription=types.Transcription(text="I see it."),
+            output_transcription=types.Transcription(text="Okay, sending the report!"),
             model_turn=types.Content(parts=[types.Part(inline_data=types.Blob(data=b"\x00\x00", mime_type="audio/pcm;rate=24000"))]),
             turn_complete=True)),
             types.LiveServerMessage(tool_call=types.LiveServerToolCall(function_calls=[call()]))]
@@ -229,6 +230,7 @@ def test_websocket_end_to_end_with_fake_google_and_real_post(monkeypatch):
         def __init__(self):
             self.evidence = asyncio.Event()
             self.media = set()
+            self.greeted = False
 
         async def send_client_content(self, **kwargs):
             pass
@@ -239,9 +241,19 @@ def test_websocket_end_to_end_with_fake_google_and_real_post(monkeypatch):
                 self.evidence.set()
 
         async def receive(self):
+            if not self.greeted:
+                self.greeted = True
+                yield types.LiveServerMessage(server_content=types.LiveServerContent(
+                    output_transcription=types.Transcription(text="Hey, what's the problem?"),
+                    model_turn=types.Content(parts=[types.Part(inline_data=types.Blob(data=b"\x00\x00", mime_type="audio/pcm;rate=24000"))]),
+                    turn_complete=True))
+                return
             await self.evidence.wait()
             yield types.LiveServerMessage(server_content=types.LiveServerContent(
-                input_transcription=types.Transcription(text="There is a pothole."), turn_complete=True))
+                input_transcription=types.Transcription(text="There is a pothole."),
+                output_transcription=types.Transcription(text="Okay, sending the report!"),
+                model_turn=types.Content(parts=[types.Part(inline_data=types.Blob(data=b"\x00\x00", mime_type="audio/pcm;rate=24000"))]),
+                turn_complete=True))
             yield types.LiveServerMessage(tool_call=types.LiveServerToolCall(function_calls=[call()]))
 
         async def send_tool_response(self, **kwargs):
@@ -263,6 +275,9 @@ def test_websocket_end_to_end_with_fake_google_and_real_post(monkeypatch):
     with TestClient(app).websocket_connect("/api/v1/live") as ws:
         ws.send_json({"type": "start", "latitude": 45.5, "longitude": -73.5})
         assert ws.receive_json() == {"type": "ready"}
+        assert ws.receive_json()["text"] == "Hey, what's the problem?"
+        assert ws.receive_json()["type"] == "audio"
+        assert ws.receive_json()["type"] == "turn_complete"
         ws.send_json({"type": "audio", "data": "AAA=", "sampleRate": 16000})
         ws.send_json({"type": "video", "data": base64.b64encode(b"\xff\xd8frame").decode()})
         events = []
@@ -273,7 +288,7 @@ def test_websocket_end_to_end_with_fake_google_and_real_post(monkeypatch):
                 ws.send_json({"type": "photo", "data": photo_base64()})
             if event["type"] in {"success", "error"}:
                 break
-        assert events == ["transcript", "turn_complete", "capture_photo", "submitting", "success"]
+        assert events == ["transcript", "transcript", "audio", "turn_complete", "capture_photo", "submitting", "success"]
     repository.save.assert_called_once()
     saved_report = repository.save.call_args.args[0]
     assert saved_report.audio_transcription == "There is a pothole."
@@ -309,4 +324,73 @@ def test_unsolicited_photo_is_rejected_before_submission():
         ws.receive_text = AsyncMock(return_value=json.dumps({"type": "photo", "data": photo_base64()}))
         with pytest.raises(ValueError, match="Unexpected photo"):
             await relay.incoming()
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("asked,answered,announced", [(False, True, True), (True, False, True), (True, True, False)])
+def test_submission_requires_question_answer_and_spoken_announcement(asked, answered, announced):
+    async def scenario():
+        relay, ws = make_relay()
+        relay.problem_asked, relay.resident_answered, relay.announced = asked, answered, announced
+        relay.post_report = AsyncMock()
+        session = SimpleNamespace(send_tool_response=AsyncMock())
+        assert not await relay.tool(session, call())
+        relay.post_report.assert_not_called()
+        ws.send_json.assert_not_called()
+        session.send_tool_response.assert_awaited_once()
+        if not announced and asked and answered:
+            assert "say aloud" in session.send_tool_response.call_args.kwargs["function_responses"][0].response["error"]
+    asyncio.run(scenario())
+
+
+def test_opening_question_must_finish_and_resident_must_answer_afterward():
+    async def scenario():
+        relay = Relay(SimpleNamespace(send_json=AsyncMock()), location())
+        audio = types.Content(parts=[types.Part(inline_data=types.Blob(data=b"\x00\x00", mime_type="audio/pcm;rate=24000"))])
+        async def receive():
+            yield types.LiveServerMessage(server_content=types.LiveServerContent(
+                input_transcription=types.Transcription(text="Early background speech"),
+                output_transcription=types.Transcription(text="Hey, what's "), model_turn=audio))
+            assert not relay.problem_asked
+            assert not relay.resident_answered
+            yield types.LiveServerMessage(server_content=types.LiveServerContent(
+                output_transcription=types.Transcription(text="the problem?"), turn_complete=True))
+            assert relay.problem_asked
+            assert not relay.resident_answered
+            yield types.LiveServerMessage(server_content=types.LiveServerContent(
+                input_transcription=types.Transcription(text="The streetlight is broken.")))
+            raise RuntimeError("End of fake stream")
+        with pytest.raises(RuntimeError, match="End of fake stream"):
+            await relay.outgoing(SimpleNamespace(receive=receive))
+        assert relay.resident_answered
+        assert relay.transcript == "The streetlight is broken."
+    asyncio.run(scenario())
+
+
+def test_text_only_announcement_does_not_allow_submission():
+    async def scenario():
+        relay, _ = make_relay()
+        relay.announced = False
+        async def receive():
+            yield types.LiveServerMessage(server_content=types.LiveServerContent(
+                output_transcription=types.Transcription(text="Okay, sending the report!"), turn_complete=True))
+            raise RuntimeError("End of fake stream")
+        with pytest.raises(RuntimeError):
+            await relay.outgoing(SimpleNamespace(receive=receive))
+        assert not relay.announced
+    asyncio.run(scenario())
+
+
+def test_interrupted_announcement_cannot_trigger_submission():
+    async def scenario():
+        relay, _ = make_relay()
+        async def receive():
+            yield types.LiveServerMessage(server_content=types.LiveServerContent(interrupted=True))
+            raise RuntimeError("End of fake stream")
+        with pytest.raises(RuntimeError):
+            await relay.outgoing(SimpleNamespace(receive=receive))
+        assert not relay.announced
+        relay.post_report = AsyncMock()
+        assert not await relay.tool(SimpleNamespace(send_tool_response=AsyncMock()), call())
+        relay.post_report.assert_not_called()
     asyncio.run(scenario())

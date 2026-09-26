@@ -4,7 +4,7 @@ export type ServerEvent =
   | { type: 'transcript'; role: 'user' | 'assistant'; text: string }
   | { type: 'error'; message: string; unknown: boolean };
 
-export type Phase = 'connecting' | 'live' | 'capturing' | 'submitting' | 'success' | 'error' | 'closed';
+export type Phase = 'connecting' | 'live' | 'announcing' | 'capturing' | 'submitting' | 'success' | 'error' | 'closed';
 export function disconnectedMessage(phase: Phase): string {
   return phase === 'submitting'
     ? 'Submission status unknown. Your report may have been saved. It has not been resubmitted.'

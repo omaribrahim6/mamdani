@@ -18,13 +18,18 @@ from .photos import decode_photo
 router = APIRouter()
 MAX_MESSAGE = 8 * 1024 * 1024
 MAX_PREVIEW_MESSAGE = 700_000
-PHOTO_TIMEOUT = 20
+PHOTO_TIMEOUT = 40  # Includes finishing queued speech before the phone's capture cue.
 SYSTEM = """You are a friendly municipal issue reporting assistant represented by a
 Mamdani avatar. Use English and a natural standard voice. Your first words must be:
-'Hey, what's the problem?' Keep replies brief. Listen to the resident and examine
+'Hey, what's the problem?' Finish asking this question and wait for the resident
+to explain the actual problem before proceeding. A greeting, background speech,
+or merely recognizing an object is not a problem explanation. Ask a follow-up
+question if the resident has not explained what needs attention.
+Keep replies brief. Listen to the resident and examine
 camera images. Ask the resident to point the camera at the issue if needed. Once a
-completed spoken explanation and usable camera evidence identify the issue, call
-submit_report automatically. This triggers a fresh photo with a 'Hold steady' cue.
+completed spoken explanation and usable camera evidence identify the issue,
+first say aloud 'Okay, sending the report!' and then call submit_report automatically.
+Do not call the tool silently. This triggers a fresh photo with a 'Hold steady' cue.
 Only call when the camera is aimed at the actual issue. Its video_transcription must describe only what you
 actually observed in camera frames, preserving uncertainty. Never invent damage,
 locations, or evidence. Do not put the resident's speech into the visual description.
@@ -69,6 +74,11 @@ class Relay:
         self.frame = None
         self.frames_sent = 0
         self.transcript = ""
+        self.problem_asked = False
+        self.resident_answered = False
+        self.assistant_turn = ""
+        self.assistant_audio = False
+        self.announced = False
         self.submission_started = False
         self.capture_pending = False
         self.photo = None
@@ -112,6 +122,8 @@ class Relay:
                 raise ValueError("Unknown message")
             data = decode_media(message)
             if kind == "audio":
+                if not self.problem_asked:
+                    continue  # Let the opening question finish before listening.
                 if self.audio.full():
                     # Old audio cannot be discarded without corrupting speech evidence.
                     raise ValueError("Audio stream overloaded")
@@ -122,7 +134,7 @@ class Relay:
 
     async def forward(self, session):
         while True:
-            if self.submission_started or self.capture_pending:
+            if not self.problem_asked or self.submission_started or self.capture_pending:
                 await asyncio.sleep(0.05)
                 continue
             if self.frame is not None:
@@ -150,6 +162,8 @@ class Relay:
             if call.name != "submit_report":
                 raise ValueError("Unknown tool")
             args = SubmitArguments.model_validate(call.args or {})
+            if not self.problem_asked or not self.resident_answered:
+                raise ValueError("Ask about the problem and wait for an answer")
             if not self.transcript.strip() or not self.frames_sent:
                 raise ValueError("Missing speech or camera evidence; ask a follow-up question")
             report = ReportInput(audio_transcription=self.transcript.strip(),
@@ -157,7 +171,12 @@ class Relay:
                                  latitude=self.location.latitude, longitude=self.location.longitude)
         except (ValueError, ValidationError):
             await session.send_tool_response(function_responses=[types.FunctionResponse(
-                id=call.id, name=call.name, response={"error": "Incomplete evidence or invalid arguments. Ask a follow-up question."},
+                id=call.id, name=call.name, response={"error": "Incomplete evidence or invalid arguments. First ask 'Hey, what's the problem?' if you have not already asked it, and wait for the resident to explain what needs attention. Ask a follow-up question if the issue or camera evidence is unclear."},
+            )])
+            return False
+        if not self.announced:
+            await session.send_tool_response(function_responses=[types.FunctionResponse(
+                id=call.id, name=call.name, response={"error": "Before calling submit_report, say aloud 'Okay, sending the report!' Then call submit_report again. The report has not been sent."},
             )])
             return False
         self.capture_pending = True
@@ -192,19 +211,34 @@ class Relay:
                 if content:
                     if content.input_transcription and content.input_transcription.text:
                         text = content.input_transcription.text
-                        self.transcript += text
+                        if self.problem_asked:
+                            self.transcript += text
+                            self.resident_answered = bool(self.transcript.strip())
+                            self.announced = False
                         if len(self.transcript) > 20_000:
                             raise ValueError("Conversation too long")
                         await self.emit("transcript", role="user", text=text)
                     if content.interrupted:
+                        self.assistant_turn = ""
+                        self.assistant_audio = False
+                        self.announced = False
                         await self.emit("interrupted")
                     if content.output_transcription and content.output_transcription.text:
+                        self.assistant_turn += content.output_transcription.text
                         await self.emit("transcript", role="assistant", text=content.output_transcription.text)
                     if content.model_turn:
                         for part in content.model_turn.parts or []:
                             if part.inline_data and part.inline_data.data:
+                                self.assistant_audio = True
                                 await self.emit("audio", data=base64.b64encode(part.inline_data.data).decode(), sampleRate=24000)
+                    spoken = self.assistant_turn.lower().replace("’", "'")
+                    if self.assistant_audio and "sending the report" in spoken:
+                        self.announced = True
                     if content.turn_complete:
+                        if self.assistant_audio and "what's the problem" in spoken:
+                            self.problem_asked = True
+                        self.assistant_turn = ""
+                        self.assistant_audio = False
                         # Separate completed user utterances without rewriting their words.
                         if self.transcript and not self.transcript.endswith("\n"):
                             self.transcript += "\n"
@@ -251,7 +285,7 @@ def live_config():
         input_audio_transcription=types.AudioTranscriptionConfig(),
         output_audio_transcription=types.AudioTranscriptionConfig(),
         tools=[types.Tool(function_declarations=[types.FunctionDeclaration(
-            name="submit_report", description="Submit the identified municipal issue once speech and camera evidence are sufficient.",
+            name="submit_report", description="Submit only after asking about the problem, hearing the resident's explanation, observing the issue, and saying aloud 'Okay, sending the report!'.",
             behavior="BLOCKING", parameters_json_schema=SubmitArguments.model_json_schema(),
         )])],
     )

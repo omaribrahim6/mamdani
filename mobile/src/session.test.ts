@@ -13,6 +13,7 @@ function harness() {
   const audio: AudioIO = {
     start: async send => { sendAudio = send; calls.push('start'); },
     play: () => { calls.push('play'); }, interrupt: () => { calls.push('interrupt'); },
+    drain: async () => { calls.push('drain'); },
     stopCapture: async () => { calls.push('stop-capture'); }, dispose: async () => { calls.push('dispose'); },
   };
   const session = new LiveSession('https://example.com', { latitude: 45, longitude: -73 }, {
@@ -20,7 +21,7 @@ function harness() {
   }, () => audio, () => socket as unknown as WebSocket);
   void session.ready.catch(() => {});
   const receive = (data: object) => socket.onmessage({ data: JSON.stringify(data) });
-  return { session, socket, receive, sent, phases, errors, calls, sendAudio: () => sendAudio! };
+  return { session, socket, audio, receive, sent, phases, errors, calls, sendAudio: () => sendAudio! };
 }
 
 test('streams only during live phase and stops on confirmed save', async () => {
@@ -31,6 +32,7 @@ test('streams only during live phase and stops on confirmed save', async () => {
   assert.deepEqual(h.sent.map(message => message.type), ['start', 'audio', 'video']);
   h.receive({ type: 'audio', data: 'AAAA', sampleRate: 24000 });
   h.receive({ type: 'interrupted' });
+  await tick();
   assert.ok(h.calls.includes('interrupt'));
   h.receive({ type: 'submitting' }); await tick();
   h.sendAudio()('AAAA', 16000); h.session.frame('jpeg');
@@ -77,6 +79,44 @@ test('cancelling during photo cue prevents late photo submission', async () => {
   h.receive({ type: 'capture_photo' }); await tick();
   await h.session.close(); assert.equal(h.session.photo('late-jpeg'), false);
   assert.deepEqual(h.sent, [{ type: 'cancel' }]);
+});
+
+test('submission announcement finishes playing before photo capture starts', async () => {
+  const h = harness(); h.receive({ type: 'ready' }); await h.session.ready;
+  let finish!: () => void;
+  h.audio.drain = () => new Promise<void>(resolve => { finish = resolve; });
+  h.receive({ type: 'audio', data: 'AAAA', sampleRate: 24000 });
+  h.receive({ type: 'capture_photo' }); await tick();
+  assert.equal(h.phases.at(-1), 'announcing');
+  assert.ok(h.calls.includes('play'));
+  assert.ok(h.calls.includes('stop-capture'));
+  assert.ok(!h.calls.includes('interrupt'));
+  assert.equal(h.session.photo('too-early'), false);
+  h.sendAudio()('AAAA', 16000); h.session.frame('preview');
+  assert.equal(h.sent.length, 0);
+  finish(); await tick();
+  assert.equal(h.phases.at(-1), 'capturing');
+  assert.equal(h.session.photo('jpeg'), true);
+});
+
+test('cancelling during announcement cannot start a late photo capture', async () => {
+  const h = harness(); h.receive({ type: 'ready' }); await h.session.ready;
+  let finish!: () => void;
+  h.audio.drain = () => new Promise<void>(resolve => { finish = resolve; });
+  h.receive({ type: 'capture_photo' }); await tick();
+  await h.session.close(); finish(); await tick();
+  assert.ok(!h.phases.includes('capturing'));
+  assert.equal(h.session.photo('jpeg'), false);
+});
+
+test('failed announcement playback stops the session without sending a photo', async () => {
+  const h = harness(); h.receive({ type: 'ready' }); await h.session.ready;
+  h.audio.drain = async () => { throw new Error('Playback stalled'); };
+  h.receive({ type: 'capture_photo' }); await tick();
+  assert.equal(h.phases.at(-1), 'error');
+  assert.ok(!h.phases.includes('capturing'));
+  assert.equal(h.session.photo('jpeg'), false);
+  assert.ok(h.calls.includes('dispose'));
 });
 
 test('photo send failure cleans up and reports an uncertain submission', async () => {

@@ -18,6 +18,12 @@ For one-command local startup, see [DEV.md](../DEV.md):
 Expo / React Native app for iOS and Android. This uses native PCM audio streaming,
 so it needs a **development build**, not Expo Go.
 
+The live conversation starts by asking what the problem is and waits for the
+resident's explanation. Before capture/submission, the agent says "Okay, sending
+the report!". Microphone capture pauses while queued speech finishes; then the
+phone shows the hold-steady photo cue. Cancelling during that announcement does
+not send a report. Success is still shown only after the backend commits it.
+
 ## Run locally
 
 Start the existing backend first (see `../backend/README.md`). From `backend/`,

@@ -16,7 +16,7 @@ import type { Phase } from './src/protocol';
 type Screen = 'home' | 'preparing' | Phase;
 type Caption = { role: 'user' | 'assistant'; text: string };
 const labels: Record<Screen, string> = { home: '', preparing: 'Getting ready', connecting: 'Connecting',
-  live: 'Listening · show the issue', capturing: 'Hold steady—taking a photo', submitting: 'Saving your report', success: 'Report saved', error: 'Session stopped', closed: '' };
+  live: 'Listening · show the issue', announcing: 'Sending your report', capturing: 'Hold steady—taking a photo', submitting: 'Saving your report', success: 'Report saved', error: 'Session stopped', closed: '' };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
@@ -110,7 +110,7 @@ export default function App() {
     cleanup.current = old?.close() ?? Promise.resolve();
     setFailure('The camera stopped. Please start a new report.'); setScreen('error');
   }, []);
-  const cameraVisible = screen === 'connecting' || screen === 'live' || screen === 'capturing';
+  const cameraVisible = screen === 'connecting' || screen === 'live' || screen === 'announcing' || screen === 'capturing';
 
   return <SafeAreaProvider><View style={styles.root}>
     <StatusBar style="light" />
@@ -172,9 +172,9 @@ const styles = StyleSheet.create({
   primaryText: { color: '#fff', fontSize: 18, fontWeight: '800' },
   disclosure: { color: '#a6a6a2', fontSize: 11, lineHeight: 17, textAlign: 'center' },
   flow: { flex: 1, padding: 18 },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#26292cee', padding: 12, borderRadius: 28 },
-  topText: { flex: 1, gap: 8 }, name: { color: '#f3f2ee', fontSize: 16, fontWeight: '900', letterSpacing: 1 },
-  status: { color: '#d9d7d1', fontSize: 12 }, cancel: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  top: { alignItems: 'center', gap: 14, backgroundColor: '#26292cee', padding: 12, paddingHorizontal: 56, borderRadius: 28 },
+  topText: { alignItems: 'center', gap: 8 }, name: { color: '#f3f2ee', fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  status: { color: '#d9d7d1', fontSize: 12, textAlign: 'center' }, cancel: { position: 'absolute', top: 12, right: 12, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   cancelText: { color: '#f3f2ee', fontSize: 34 }, space: { flex: 1 },
   panel: { backgroundColor: '#26292cf5', borderRadius: 24, padding: 22, gap: 16 },
   panelTitle: { color: '#f3f2ee', fontSize: 25, fontWeight: '800', textAlign: 'center' },

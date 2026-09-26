@@ -5,6 +5,7 @@ export interface AudioIO {
   start(send: (data: string, rate: number) => void): Promise<void>;
   play(data: string, rate: number): void;
   interrupt(): void;
+  drain(): Promise<void>;
   stopCapture(): Promise<void>;
   dispose(): Promise<void>;
 }
@@ -24,6 +25,7 @@ export class LiveSession {
   private timer: ReturnType<typeof setTimeout>;
   private pendingAudio: { data: string; sampleRate: number }[] = [];
   private audioReady = false;
+  private receiving = Promise.resolve();
   readonly ready: Promise<void>;
   private finishReady!: () => void;
   private rejectReady!: (error: Error) => void;
@@ -40,7 +42,11 @@ export class LiveSession {
     };
     this.ws.onmessage = event => {
       if (this.closed) return;
-      try { void this.receive(JSON.parse(event.data) as ServerEvent).catch(() => this.fail('Could not start voice capture. Please try again.')); }
+      try {
+        const message = JSON.parse(event.data) as ServerEvent;
+        this.receiving = this.receiving.then(() => this.closed ? undefined : this.receive(message))
+          .catch(() => this.fail('Could not finish voice playback or capture. Please try again.'));
+      }
       catch { this.fail('The server sent an invalid response.'); }
     };
     this.ws.onerror = () => this.fail(disconnectedMessage(this.phase));
@@ -72,8 +78,11 @@ export class LiveSession {
       case 'turn_complete': this.callbacks.transcript('assistant', '\n'); break;
       case 'capture_photo':
         if (this.phase !== 'live') return;
-        this.setPhase('capturing'); this.pendingAudio = []; this.audio.interrupt();
-        await this.audio.stopCapture(); break;
+        this.setPhase('announcing');
+        await this.audio.stopCapture();
+        await this.audio.drain();
+        if (!this.closed) this.setPhase('capturing');
+        break;
       case 'submitting':
         this.setPhase('submitting'); this.audio.interrupt(); await this.audio.stopCapture(); break;
       case 'success': await this.close(false); this.setPhase('success'); break;
@@ -82,7 +91,7 @@ export class LiveSession {
   }
 
   private send(message: object) {
-    if (this.closed || this.phase === 'submitting' || this.phase === 'capturing' || this.ws.readyState !== 1) return;
+    if (this.closed || this.phase !== 'live' || this.ws.readyState !== 1) return;
     if (this.ws.bufferedAmount > 256_000) { this.fail('The connection cannot keep up. Please start again.'); return; }
     this.ws.send(JSON.stringify(message));
   }
