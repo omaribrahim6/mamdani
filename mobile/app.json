@@ -26,7 +26,6 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-audio",
       "expo-font",
       [
         "expo-splash-screen",
@@ -40,7 +39,7 @@
         "expo-camera",
         {
           "cameraPermission": "Mamdani looks at the problem you point your camera at.",
-          "microphonePermission": "Hold the shutter to tell Mamdani what’s wrong.",
+          "microphonePermission": "Talk to Mamdani about what you're showing him.",
           "recordAudioAndroid": true
         }
       ],
@@ -50,13 +49,13 @@
           "locationWhenInUsePermission": "Your report needs the spot where the problem is, so the crew can find it."
         }
       ],
+      "expo-asset",
       [
-        "expo-image-picker",
+        "expo-audio",
         {
-          "photosPermission": "Send a photo or video of the problem you already took."
+          "microphonePermission": "Talk to Mamdani about what you're showing him."
         }
-      ],
-      "expo-asset"
+      ]
     ]
   }
 }

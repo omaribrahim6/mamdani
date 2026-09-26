@@ -8,6 +8,8 @@ export interface MyReport {
   address: string;
   at: number;
   duplicate: boolean;
+  /** the evidence photo on this phone (cache; may be cleared by the OS) */
+  photoUri?: string;
 }
 
 const KEY = 'mamdani.reports';
