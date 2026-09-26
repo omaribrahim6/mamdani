@@ -185,10 +185,12 @@ export function buildTripoMayor(pack: MrigPack, outfit: MayorOutfit): MayorRig {
   const q = new THREE.Quaternion();
   const e = new THREE.Euler();
   const I = new THREE.Quaternion();
+  const part = new THREE.Quaternion();
   const apply = (j: (typeof J)['spine'], rot: THREE.Euler | THREE.Quaternion, amount = 1) => {
     if (rot instanceof THREE.Euler) q.setFromEuler(rot);
     else q.copy(rot);
-    if (amount !== 1) q.slerpQuaternions(I, q, amount);
+    // (slerp from a copy: slerpQuaternions(I, q, …) would overwrite q before reading it)
+    if (amount !== 1) q.slerpQuaternions(I, part.copy(q), amount);
     q.multiply(j.neutral);
     // character-space rotation about the joint → the bone's own frame
     j.b.quaternion.copy(j.rest).multiply(j.worldInv.clone().multiply(q).multiply(j.world));

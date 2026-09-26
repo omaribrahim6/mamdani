@@ -168,9 +168,12 @@ export class PortraitStage extends RigStage {
     const k = Math.min(1, dt * (this.gaze === 'shutter' ? 14 : 7));
     this.pitch += (p - this.pitch) * k;
     this.yaw += (y - this.yaw) * k;
-    rig.head.rotation.set(this.pitch + nod, this.yaw, 0.08 + tilt);
+    // The generated model's eyes are painted on, so all of his looking is done by the head:
+    // it turns further, and the shoulders follow more, than the procedural one's.
+    const g = rig.headAnchor ? 1.05 : 1;
+    rig.head.rotation.set((this.pitch + nod) * g, this.yaw * g, (0.08 + tilt) * (rig.headAnchor ? 1.2 : 1));
     // the body turns a little with the head
-    rig.body.rotation.y = this.yaw * 0.25;
+    rig.body.rotation.y = this.yaw * (rig.headAnchor ? 0.35 : 0.25);
     rig.body.position.y = Math.sin(t * 2.2) * 0.006;
     rig.browL.rotation.z = browFurrow;
     rig.browR.rotation.z = -browFurrow;
