@@ -22,10 +22,10 @@ button, input { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--cream); outline-offset: 3px; }
 
-.command-mark { display: flex; align-items: center; gap: 11px; color: var(--ink); font-size: .84rem; font-weight: 660; line-height: 1.05; letter-spacing: -.02em; }
-.command-mark > span { width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid #56534d; border-radius: 50%; font-size: .8rem; }
-.command-mark div { display: grid; gap: 3px; }
-.command-mark small { color: var(--muted); font-size: .65rem; font-weight: 520; }
+.command-mark { min-height: 46px; display: flex; align-items: center; gap: 10px; color: var(--ink); font-size: .88rem; line-height: 1; letter-spacing: -.02em; }
+.command-mark strong { font-weight: 660; }
+.brand-image-frame { width: 38px; height: 46px; flex: 0 0 auto; display: grid; place-items: center; background: transparent; }
+.brand-image-frame img { width: auto; height: 44px; max-width: 100%; display: block; object-fit: contain; object-position: center; transform: translateY(1px); }
 
 /* Auth and setup states */
 .configuration-page, .auth-state { min-height: 100vh; display: grid; place-content: center; justify-items: start; padding: 40px; color: var(--ink); background: var(--shell); }
@@ -41,16 +41,15 @@ code { padding: 3px 6px; color: var(--cream); background: var(--panel); border: 
 /* Login */
 .login-page { height: 100dvh; padding: clamp(14px, 2vw, 28px); display: grid; overflow: hidden; background: var(--cream); }
 .login-console { width: 100%; height: 100%; min-height: 0; padding: 27px clamp(24px, 4vw, 58px) 23px; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--shell); border: 1px solid #282722; border-radius: 18px; box-shadow: 0 0 42px rgba(255, 250, 226, .82), 0 24px 70px rgba(50, 43, 31, .3); overflow: hidden; }
-.login-header, .login-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.secure-note { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .72rem; }
-.secure-note svg { color: var(--cream); }
+.login-header { display: flex; align-items: center; }
 .login-hero { min-height: 0; display: grid; grid-template-columns: minmax(380px, .8fr) minmax(500px, 1.2fr); align-items: center; gap: clamp(32px, 5vw, 84px); padding: clamp(24px, 4.5vh, 54px) 0; overflow: hidden; }
 .login-message { max-width: 650px; }
 .login-message h1 { margin: 0; font-size: clamp(3.6rem, 6.5vw, 7.5rem); line-height: .88; letter-spacing: -.075em; font-weight: 590; }
 .login-message > p:last-of-type { max-width: 540px; margin: 24px 0 28px; color: var(--muted); font-size: clamp(.92rem, 1.1vw, 1.08rem); line-height: 1.65; }
 .login-message button { min-width: 220px; padding: 15px 17px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--cream); border-radius: 4px; color: var(--dark-on-cream); background: var(--cream); font-size: .83rem; font-weight: 680; transition: transform .16s ease, background .16s ease; }
 .login-message button:hover { transform: translateY(-2px); background: #f3ead0; }
-.login-preview { width: 100%; max-width: 700px; justify-self: end; display: grid; grid-template-rows: clamp(210px, 32vh, 300px) auto; border: 1px solid #3a3935; border-radius: 7px; background: var(--panel); box-shadow: 0 30px 80px rgba(0, 0, 0, .28); overflow: hidden; transform: rotate(.7deg); }
+.login-preview { width: 100%; max-width: 700px; justify-self: end; display: grid; grid-template-rows: clamp(210px, 32vh, 300px) auto; border: 1px solid #3a3935; border-radius: 7px; background: var(--panel); box-shadow: 0 24px 65px rgba(0, 0, 0, .25); overflow: hidden; transform: translateY(0); transition: transform .24s cubic-bezier(.2,.8,.2,1), border-color .24s ease, box-shadow .24s ease; }
+.login-preview:hover { transform: translateY(-5px) scale(1.006); border-color: var(--cream); box-shadow: 0 0 0 1px rgba(232,223,193,.22), 0 0 34px rgba(232,223,193,.24), 0 34px 85px rgba(0,0,0,.4); }
 .preview-map { position: relative; min-height: 0; overflow: hidden; background: #d6d5cf; }
 .preview-streets { position: absolute; inset: -20%; transform: rotate(-17deg); background: repeating-linear-gradient(90deg, transparent 0 70px, rgba(111, 110, 104, .28) 71px 74px), repeating-linear-gradient(0deg, transparent 0 55px, rgba(111, 110, 104, .25) 56px 59px); }
 .preview-streets::before, .preview-streets::after { content: ''; position: absolute; background: #f2f0e9; box-shadow: 0 0 0 1px rgba(120, 117, 110, .2); }
@@ -67,7 +66,9 @@ code { padding: 3px 6px; color: var(--cream); background: var(--panel); border: 
 .preview-report > p { margin: 0 0 23px; color: var(--muted); font-size: .76rem; }
 .preview-report footer { padding-top: 14px; border-top: 1px solid var(--line); color: #bbb7af; font-size: .7rem; }
 .preview-report footer span:last-child { display: flex; align-items: center; gap: 6px; }
-.login-footer { padding-top: 20px; border-top: 1px solid #252421; color: #77746e; font-size: .65rem; }
+.login-footer { padding-top: 20px; display: flex; align-items: center; justify-content: center; border-top: 1px solid #252421; color: var(--cream); font-size: .65rem; }
+.login-footer > span { display: flex; align-items: center; gap: 7px; }
+.auth0-mark { width: 14px; height: 14px; flex: 0 0 auto; }
 
 /* Application shell */
 .console-canvas { width: 100%; height: 100dvh; padding: 18px; overflow: hidden; background: var(--cream); }
@@ -93,9 +94,7 @@ code { padding: 3px 6px; color: var(--cream); background: var(--panel); border: 
 .reports-header { display: flex; justify-content: space-between; align-items: end; gap: 24px; }
 .reports-header p { margin: 0 0 8px; color: var(--muted); font-size: .68rem; }
 .reports-header h1 { margin: 0; font-size: clamp(2rem, 3.2vw, 3.6rem); line-height: .95; letter-spacing: -.055em; font-weight: 580; }
-.reports-header > span { color: var(--muted); font-size: .66rem; }
 .has-selection .reports-header h1 { font-size: 1.6rem; }
-.has-selection .reports-header > span { display: none; }
 .reports-summary { margin: 23px 0 20px; padding: 15px 0; display: flex; justify-content: space-between; gap: 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); font-size: .7rem; }
 .reports-summary p { margin: 0; }
 .reports-summary span { color: var(--cream); white-space: nowrap; }
@@ -197,7 +196,6 @@ code { padding: 3px 6px; color: var(--cream); background: var(--panel); border: 
   .login-page, .console-canvas { padding: 8px; }
   .login-console, .console-shell { height: 100%; min-height: 0; border-radius: 12px; }
   .login-console { padding: 22px; }
-  .secure-note span { display: none; }
   .login-hero { display: flex; flex-direction: column; align-items: stretch; gap: 24px; padding: 26px 0 18px; }
   .login-message h1 { font-size: clamp(2.8rem, 13vw, 4.3rem); }
   .login-message > p:last-of-type { margin: 18px 0 22px; font-size: .85rem; line-height: 1.5; }

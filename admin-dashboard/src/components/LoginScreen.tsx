@@ -1,5 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { ArrowUpRight, Camera, MapPin, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, Camera, MapPin } from 'lucide-react';
+import { Auth0Mark, BrandMark } from './BrandMark';
 
 export function LoginScreen() {
   const { loginWithRedirect } = useAuth0();
@@ -8,8 +9,7 @@ export function LoginScreen() {
     <main className="login-page">
       <div className="login-console">
         <header className="login-header">
-          <div className="command-mark"><span aria-hidden="true">C</span><div>Cityworks<small>Command</small></div></div>
-          <span className="secure-note"><ShieldCheck size={15} /> Protected staff workspace</span>
+          <BrandMark />
         </header>
 
         <section className="login-hero">
@@ -36,7 +36,7 @@ export function LoginScreen() {
           </div>
         </section>
 
-        <footer className="login-footer"><span>Authorized personnel only</span><span>Secured by Auth0</span></footer>
+        <footer className="login-footer"><span><Auth0Mark /> Secured by Auth0</span></footer>
       </div>
     </main>
   );

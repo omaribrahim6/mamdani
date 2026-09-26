@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { FileText, LogOut } from 'lucide-react';
 import { mockReports } from '../mockReports';
+import { BrandMark } from './BrandMark';
 import { ReportCard } from './ReportCard';
 import { ReportDetail } from './ReportDetail';
 
@@ -23,7 +24,7 @@ export function Dashboard() {
     <main className="console-canvas">
       <div className={`console-shell${selectedReport ? ' detail-open' : ''}`}>
         <aside className="console-sidebar">
-          <div className="command-mark"><span aria-hidden="true">C</span><div>Cityworks<small>Command</small></div></div>
+          <BrandMark />
           <nav aria-label="Primary navigation">
             <a href="#reports" className="console-nav-active"><FileText size={18} /><span>Reports</span><b>{mockReports.length}</b></a>
           </nav>
@@ -40,7 +41,6 @@ export function Dashboard() {
           <div className={`reports-pane${selectedReport ? ' has-selection' : ''}`}>
             <header className="reports-header">
               <div><p>Saturday, September 26</p><h1>City reports</h1></div>
-              <span>Toronto operations</span>
             </header>
             <div className="reports-summary">
               <p>Incoming field reports, ordered for review.</p>
