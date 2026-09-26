@@ -40,13 +40,36 @@ const rms = (s: Float32Array, from = 0, to = s.length) => {
   return Math.sqrt(sum / Math.max(1, to - from));
 };
 
+/**
+ * Cheap spectral cues for one slice of his voice, for the mouth shape (no transcript needed):
+ *   bright — zero-crossing rate: hiss and "ee" have lots of high-frequency energy
+ *   dark   — share of energy under ~500 Hz (one-pole low-pass): "oo" and "o" are low-heavy
+ */
+function voiceCues(s: Float32Array, from: number, to: number, rate: number) {
+  const a = 1 - Math.exp((-2 * Math.PI * 500) / rate);
+  let low = 0, lowE = 0, total = 0, crossings = 0;
+  for (let i = from; i < to; i++) {
+    const v = s[i];
+    low += a * (v - low);
+    lowE += low * low;
+    total += v * v;
+    if (i > from && (v >= 0) !== (s[i - 1] >= 0)) crossings++;
+  }
+  const zcr = crossings / Math.max(1, to - from);
+  const clamp = (x: number) => Math.max(0, Math.min(1, x));
+  return {
+    bright: clamp((zcr - 0.06) / 0.18),
+    dark: total > 1e-7 ? clamp((lowE / total - 0.5) / 0.4) : 0,
+  };
+}
+
 export class LiveAudio {
   private recorder: AudioRecorder | null = null; // created on start(), not per instance
   private context: AudioContext | null = null;
   private player: AudioBufferQueueSourceNode | null = null;
   private queued = new Map<string, number>();
   private queueEnd = 0; // context time when everything queued will have played
-  private envelope: Array<{ start: number; step: number; levels: number[] }> = [];
+  private envelope: Array<{ start: number; step: number; levels: number[]; bright: number[]; dark: number[] }> = [];
   private muteUntil = 0;
   private waiters = new Set<() => void>();
   private disposed = false;
@@ -115,7 +138,8 @@ export class LiveAudio {
     const n = Math.max(1, Math.ceil(duration / step));
     const per = Math.floor(samples.length / n);
     const levels = Array.from({ length: n }, (_, k) => Math.min(1, rms(samples, k * per, Math.min(samples.length, (k + 1) * per)) * 4));
-    this.envelope.push({ start, step, levels });
+    const cues = Array.from({ length: n }, (_, k) => voiceCues(samples, k * per, Math.min(samples.length, (k + 1) * per), rate));
+    this.envelope.push({ start, step, levels, bright: cues.map((c) => c.bright), dark: cues.map((c) => c.dark) });
     if (this.envelope.length > 200) this.envelope.splice(0, this.envelope.length - 200);
     this.queued.set(this.player.enqueueBuffer(buffer), duration);
     this.onSpeaking?.(true);
@@ -133,6 +157,20 @@ export class LiveAudio {
       }
     }
     return 0;
+  }
+
+  /** Loudness plus mouth-shape cues of the voice playing right now. */
+  shapeNow(): { level: number; bright: number; dark: number } {
+    if (!this.context || !this.queued.size) return { level: 0, bright: 0, dark: 0 };
+    const t = this.context.currentTime;
+    for (let i = this.envelope.length - 1; i >= 0; i--) {
+      const e = this.envelope[i];
+      if (t >= e.start) {
+        const k = Math.floor((t - e.start) / e.step);
+        return k < e.levels.length ? { level: e.levels[k], bright: e.bright[k], dark: e.dark[k] } : { level: 0, bright: 0, dark: 0 };
+      }
+    }
+    return { level: 0, bright: 0, dark: 0 };
   }
 
   get speaking() {

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { makeFlag, type MayorOutfit, type MayorRig } from './build';
+import { addFaceMorphs, FACE_SHAPES, type FaceWeights } from './face';
+import { CartoonMouth } from './mouth';
 
 // Tripo's generated Mamdani (image → 3D → auto-rig, Mixamo skeleton), loaded from a .mrig pack
 // (scripts/bake-mamdani.ts) and wrapped so it answers to the same rig as the procedural one:
@@ -124,6 +126,8 @@ export function buildTripoMayor(pack: MrigPack, outfit: MayorOutfit): MayorRig {
   const hips = inner.worldToLocal(bone('Hips').getWorldPosition(new THREE.Vector3()));
   inner.position.set(-hips.x, 0, -hips.z);
 
+  // sculpt the face shapes once per pack (the geometry is shared by every Mamdani built from it)
+  addFaceMorphs(pack.geometry, pack.face);
   const mesh = new THREE.SkinnedMesh(pack.geometry, pack.material);
   mesh.castShadow = true;
   mesh.frustumCulled = false; // skinned bounds move with the pose
@@ -244,11 +248,12 @@ export function buildTripoMayor(pack: MrigPack, outfit: MayorOutfit): MayorRig {
   const toHead = (p: THREE.Vector3) => p.clone().applyMatrix4(headInv).applyQuaternion(back);
   const [e1, e2] = pack.face.eyes;
   const eyeGap = pack.face.eyeGap;
-  const mouth = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshStandardMaterial({ color: 0x2a1412, roughness: 0.9 }));
-  mouth.name = 'speaking-mouth';
+  // the drawn mouth (components/mayor/mouth.ts): lips, teeth and tongue, facing out of the face
+  const cartoon = new CartoonMouth(eyeGap);
+  const mouth = cartoon.mesh;
   mouth.position.copy(toHead(pack.face.mouth));
-  mouth.scale.set(0.01, 0.011, eyeGap * 0.17);
-  mouth.userData.base = mouth.scale.clone();
+  mouth.rotation.y = Math.PI / 2; // its plane faces +X, the model's forward
+  mouth.userData.base = new THREE.Vector3(0.01, 0.011, eyeGap * 0.17); // for rigs driven without setFace
   mouth.visible = false;
   faceFrame.add(mouth);
 
@@ -287,6 +292,12 @@ export function buildTripoMayor(pack: MrigPack, outfit: MayorOutfit): MayorRig {
     mouthOverlay: true,
     headAnchor: headBone,
     makeLids,
+    setFace(w: FaceWeights) {
+      const inf = mesh.morphTargetInfluences;
+      if (!inf) return;
+      for (let i = 0; i < FACE_SHAPES.length; i++) inf[i] = w[FACE_SHAPES[i]];
+      cartoon.set({ open: w.jawOpen, wide: w.mouthWide, round: w.mouthRound, smile: w.smile });
+    },
     update() {
       apply(J.spine, body.rotation);
       bone('Spine').scale.copy(body.scale);
