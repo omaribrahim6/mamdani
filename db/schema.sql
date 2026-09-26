@@ -2,6 +2,7 @@
 -- issues:   one row per real-world problem (deduplicated)
 -- reports:  every citizen submission — a hypertable, because this is the city's time-series memory
 -- media:    evidence photos
+-- report_sessions: phone shutter presses, so a retried submission never creates a second report
 -- reports_hourly: continuous aggregate powering the Command Center's activity chart
 
 create extension if not exists timescaledb;
@@ -54,6 +55,15 @@ create table if not exists media (
   mime       text not null,
   data       bytea not null,
   created_at timestamptz not null default now()
+);
+
+-- one row per shutter press from the phone: the idempotency key that guarantees one commit
+create table if not exists report_sessions (
+  session_id   text primary key,
+  issue_id     bigint,
+  response     jsonb,
+  created_at   timestamptz not null default now(),
+  completed_at timestamptz
 );
 
 create materialized view if not exists reports_hourly

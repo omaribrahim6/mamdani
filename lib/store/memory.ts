@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { category, CATEGORY_IDS, type CategoryId } from '../categories';
 import { metersBetween, priorityOf } from '../priority';
 import { SEED } from '../seed';
-import type { Analysis, CityStats, Issue, Report, Status } from '../types';
+import type { Analysis, CityStats, Issue, Report, ReportResponse, Status } from '../types';
 import { STATUS_LABEL } from '../types';
 import type { NewIssue, Store } from './types';
 
@@ -13,6 +13,7 @@ interface State {
   issues: Map<number, Issue>;
   reports: Report[];
   media: Map<string, { data: Buffer; mime: string }>;
+  sessions: Map<string, ReportResponse | null>;
   nextId: number;
 }
 
@@ -27,7 +28,7 @@ function reprioritize(i: Issue, now = Date.now()) {
 
 function seed(): State {
   const now = Date.now();
-  const st: State = { issues: new Map(), reports: [], media: new Map(), nextId: 1831 };
+  const st: State = { issues: new Map(), reports: [], media: new Map(), sessions: new Map(), nextId: 1831 };
   // deterministic jitter so the charts look the same on every restart
   let s = 7;
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
@@ -159,6 +160,26 @@ export const memoryStore: Store = {
 
   async getMedia(id) {
     return state().media.get(id) ?? null;
+  },
+
+  async getSession(id) {
+    const st = state();
+    return st.sessions.has(id) ? { response: st.sessions.get(id) ?? null } : null;
+  },
+
+  async claimSession(id) {
+    const st = state();
+    if (st.sessions.has(id)) return false;
+    st.sessions.set(id, null);
+    return true;
+  },
+
+  async completeSession(id, _issueId, response) {
+    state().sessions.set(id, response);
+  },
+
+  async releaseSession(id) {
+    state().sessions.delete(id);
   },
 
   async stats(): Promise<CityStats> {

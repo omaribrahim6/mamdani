@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { analyze, hasGemini } from './analyze';
+import { analyze, hasGemini, TEXT_MODEL } from './analyze';
 import { category } from './categories';
 import { streetAddress } from './geo';
 import { store } from './store';
@@ -23,15 +23,29 @@ export async function intake(input: {
 }): Promise<{ analysis: Analysis; result: SubmitResult | null }> {
   const [analysis, address] = await Promise.all([analyze(input), streetAddress(input.lat, input.lng)]);
   if (!analysis.isCivicIssue) return { analysis, result: null };
+  return { analysis, result: await commitReport({ ...input, analysis, address }) };
+}
 
+/** The write: store the evidence photo, then merge into a matching open issue or open a new one. */
+export async function commitReport(input: {
+  analysis: Analysis;
+  photo: { data: Buffer; mime: string };
+  lat: number;
+  lng: number;
+  address?: string;
+  transcript?: string;
+}): Promise<SubmitResult> {
+  const { analysis } = input;
+  const address = input.address ?? (await streetAddress(input.lat, input.lng));
   const mediaId = await store.putMedia(input.photo.data, input.photo.mime);
-  const report = { createdAt: Date.now(), lat: input.lat, lng: input.lng, address, mediaId, transcript: analysis.transcript, analysis };
+  const transcript = input.transcript || analysis.transcript;
+  const report = { createdAt: Date.now(), lat: input.lat, lng: input.lng, address, mediaId, transcript, analysis };
 
   const candidates = await store.openNear(input.lat, input.lng, RADIUS[analysis.category] ?? 35, analysis.category);
   for (const c of candidates.slice(0, 3)) {
     if (await sameProblem(input.photo, c.mediaId)) {
       const { issue, report: saved } = await store.confirmIssue(c.id, report);
-      return { analysis, result: { issue, report: saved, duplicate: true } };
+      return { issue, report: saved, duplicate: true };
     }
   }
 
@@ -58,7 +72,7 @@ export async function intake(input: {
     },
     report,
   );
-  return { analysis, result: { issue, report: saved, duplicate: false } };
+  return { issue, report: saved, duplicate: false };
 }
 
 async function sameProblem(photo: { data: Buffer; mime: string }, otherMediaId: string | null): Promise<boolean> {
@@ -69,7 +83,7 @@ async function sameProblem(photo: { data: Buffer; mime: string }, otherMediaId: 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
     const res = await ai.models.generateContent({
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+      model: TEXT_MODEL(),
       contents: [
         {
           role: 'user',

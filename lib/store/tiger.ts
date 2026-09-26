@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { category, type CategoryId } from '../categories';
 import { metersBetween, priorityOf } from '../priority';
-import type { CityStats, Issue, Report, Status } from '../types';
+import type { CityStats, Issue, Report, ReportResponse, Status } from '../types';
 import { STATUS_LABEL } from '../types';
 import { pgConfig } from './pg-url';
 import type { NewIssue, Store } from './types';
@@ -160,6 +160,24 @@ export const tigerStore: Store = {
   async getMedia(id) {
     const { rows } = await db().query(`select mime, data from media where id = $1`, [id]);
     return rows[0] ? { mime: rows[0].mime as string, data: rows[0].data as Buffer } : null;
+  },
+
+  async getSession(id) {
+    const { rows } = await db().query(`select response from report_sessions where session_id = $1`, [id]);
+    return rows[0] ? { response: (rows[0].response as ReportResponse | null) ?? null } : null;
+  },
+
+  async claimSession(id) {
+    const { rowCount } = await db().query(`insert into report_sessions (session_id) values ($1) on conflict do nothing`, [id]);
+    return rowCount === 1;
+  },
+
+  async completeSession(id, issueId, response) {
+    await db().query(`update report_sessions set issue_id = $2, response = $3, completed_at = now() where session_id = $1`, [id, issueId, response]);
+  },
+
+  async releaseSession(id) {
+    await db().query(`delete from report_sessions where session_id = $1 and response is null`, [id]);
   },
 
   async stats(): Promise<CityStats> {
