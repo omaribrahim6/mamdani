@@ -1,44 +1,43 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, Camera, MapPin, ShieldCheck } from 'lucide-react';
 
 export function LoginScreen() {
   const { loginWithRedirect } = useAuth0();
 
   return (
-    <main className="login-shell">
-      <section className="login-brand">
-        <div className="brand-lockup">
-          <div className="seal" aria-hidden="true">CW</div>
-          <span>Cityworks Command</span>
-        </div>
-        <div className="login-copy">
-          <p className="session-line">Saturday operations · Toronto</p>
-          <h1>See what needs the city’s attention next.</h1>
-          <p className="login-lede">
-            A protected workspace for triaging public reports, assigning crews,
-            and keeping urgent accessibility issues moving.
-          </p>
-        </div>
-        <div className="login-footnote">
-          <ShieldCheck size={18} /> Secured with Auth0 Universal Login
-        </div>
-      </section>
+    <main className="login-page">
+      <div className="login-console">
+        <header className="login-header">
+          <div className="command-mark"><span aria-hidden="true">C</span><div>Cityworks<small>Command</small></div></div>
+          <span className="secure-note"><ShieldCheck size={15} /> Protected staff workspace</span>
+        </header>
 
-      <section className="login-panel">
-        <div className="signin-card">
-          <p className="signin-label">Staff access</p>
-          <h2>Enter the command centre</h2>
-          <p>Use your authorized city account. Access is logged for security.</p>
-          <button className="primary-button" onClick={() => loginWithRedirect()}>
-            Continue to sign in <ArrowRight size={18} />
-          </button>
-          <ul className="security-list" aria-label="Authentication features">
-            <li><CheckCircle2 size={16} /> Redirect-based sign-in</li>
-            <li><CheckCircle2 size={16} /> Tokens kept in memory</li>
-            <li><CheckCircle2 size={16} /> Automatic session checks</li>
-          </ul>
-        </div>
-      </section>
+        <section className="login-hero">
+          <div className="login-message">
+            <h1>Every report.<br />One clear response.</h1>
+            <p>Review public-space issues, verify their location, and give field teams the context they need to act.</p>
+            <button type="button" onClick={() => loginWithRedirect()}>
+              Continue to sign in <ArrowUpRight size={19} />
+            </button>
+          </div>
+
+          <div className="login-preview" aria-hidden="true">
+            <div className="preview-map">
+              <div className="preview-streets"><i /><i /><i /><i /></div>
+              <span className="preview-pin"><MapPin size={19} /></span>
+              <div className="map-caption"><span>Live location</span><strong>43.6496, −79.4349</strong></div>
+            </div>
+            <div className="preview-report">
+              <div><span className="priority-tag priority-urgent">Urgent</span><small>CW-2418</small></div>
+              <h2>Sidewalk uplift blocking curb access</h2>
+              <p>Dundas St W & Gladstone Ave</p>
+              <footer><span>Accessibility</span><span><Camera size={14} /> 2 photos</span></footer>
+            </div>
+          </div>
+        </section>
+
+        <footer className="login-footer"><span>Authorized personnel only</span><span>Secured by Auth0</span></footer>
+      </div>
     </main>
   );
 }

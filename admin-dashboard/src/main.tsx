@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Auth0Provider } from '@auth0/auth0-react';
 import App from './App';
+import '@fontsource-variable/manrope';
 import './styles.css';
 
 const domain = import.meta.env.VITE_AUTH0_DOMAIN;
