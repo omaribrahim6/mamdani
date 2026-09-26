@@ -30,7 +30,8 @@ export function ReportDetail({ issue, now, onClose, onStatus, onSimulateConfirm 
   const boxKey = issue.box ? issue.box.join(",") : "";
   useEffect(() => {
     if (!back || !host.current || !canvas.current || view !== 'photo') return;
-    const ec = new EvidenceCanvas(host.current, canvas.current);
+    let ec: EvidenceCanvas;
+    try { ec = new EvidenceCanvas(host.current, canvas.current); } catch { return; }
     evidence.current = ec.view;
     ec.view.show(photo, boxKey ? (boxKey.split(",").map(Number) as [number, number, number, number]) : null, cat.color);
     return () => { ec.dispose(); evidence.current = null; };
@@ -54,7 +55,7 @@ export function ReportDetail({ issue, now, onClose, onStatus, onSimulateConfirm 
             {view === 'photo' && photo ? (
               <div ref={host} className="evidence-host" role="img" aria-label={`Resident photo: ${issue.title}. Gemini marked the problem area.`}>
                 {back ? <canvas ref={canvas} className="evidence-canvas" /> : <img src={photo} alt="" />}
-                <span className="evidence-stencil" style={{ color: cat.color }}>{cat.stencil}</span>
+                <span className="evidence-tag" style={{ borderColor: cat.color }}>{cat.label} · Gemini detection</span>
               </div>
             ) : (
               <ReportMap coordinates={[issue.lng, issue.lat]} label={issue.address} color={cat.color} />
@@ -90,13 +91,24 @@ export function ReportDetail({ issue, now, onClose, onStatus, onSimulateConfirm 
           </div>
           {!WRITES_ENABLED && <p className="preview-note">Preview mode: status changes stay in this browser and are not written to the city's record.</p>}
 
+          {issue.standard ? (
+            <div className={`gc-notice${issue.dueAt && issue.dueAt < now && issue.status !== 'resolved' ? ' danger' : ''}`} role="note">
+              <h3>City service standard{issue.dueAt ? ` · due ${clock(issue.dueAt)}` : ''}</h3>
+              <p>{issue.standard.text} <a href={issue.standard.sourceUrl} target="_blank" rel="noreferrer">{issue.standard.sourceTitle}</a></p>
+            </div>
+          ) : (
+            <div className="gc-notice" role="note"><h3>City service standard</h3><p>No published target for this category yet. Triage by priority.</p></div>
+          )}
+          {issue.accessibility.barrier && (
+            <div className="gc-notice warning" role="note"><h3>Accessibility barrier</h3><p>{issue.accessibility.notes[0] ?? 'Blocks people using mobility aids.'}</p></div>
+          )}
+
           <div className="report-facts">
             <div><span>First reported</span><strong>{clock(issue.firstReportedAt)}</strong></div>
             <div data-reports-target={issue.id}><span>Residents reporting</span><strong>{issue.reports}</strong></div>
             <div><span>Department</span><strong>{issue.department}</strong></div>
             <div><span>Last update</span><strong>{ago(issue.updatedAt, now)}</strong></div>
             {issue.dueAt ? <div><span>City target</span><strong>{clock(issue.dueAt)}</strong></div> : null}
-            {issue.standard ? <div className="fact-wide"><span>Service standard</span><strong><a href={issue.standard.sourceUrl} target="_blank" rel="noreferrer">{issue.standard.text}</a></strong></div> : null}
           </div>
 
           <div className="priority-bars" aria-label="Why this priority">

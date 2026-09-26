@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ApiIssue, ApiStats } from '../data/api';
 import { category } from '../data/categories';
-import { clock, ticketId } from '../data/view';
-import { CityTable } from '../gl/cityTable';
+import { clock, STATUS_LABEL, ticketId } from '../data/view';
+import { CityTwin } from '../gl/cityTwin';
 import { useStages } from '../gl/GLProvider';
 import { Timeline } from '../gl/timeline';
+import { useLang } from '../i18n';
 
 interface Props {
   issues: ApiIssue[];
@@ -17,51 +18,46 @@ interface Props {
 
 export function CommandTable({ issues, stats, selectedId, cursor, onCursor, onPick }: Props) {
   const { back } = useStages();
-  const tableHost = useRef<HTMLDivElement>(null);
+  const { t } = useLang();
+  const host = useRef<HTMLDivElement>(null);
   const lineHost = useRef<HTMLDivElement>(null);
-  const table = useRef<CityTable | null>(null);
+  const twin = useRef<CityTwin | null>(null);
   const line = useRef<Timeline | null>(null);
   const pickRef = useRef(onPick);
   pickRef.current = onPick;
   const [focus, setFocus] = useState<{ x: number; y: number } | null>(null);
+  const [hover, setHover] = useState<{ issue: ApiIssue; x: number; y: number } | null>(null);
   const [hoverX, setHoverX] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!back || !tableHost.current || !lineHost.current) return;
-    const t = new CityTable(tableHost.current, (ids) => pickRef.current(ids));
-    let lastFocus = '';
-    t.onFocus = (p) => {
-      const k = p ? `${Math.round(p.x)},${Math.round(p.y)}` : '';
-      if (k !== lastFocus) { lastFocus = k; setFocus(p); }
-    };
+    if (!back || !host.current || !lineHost.current) return;
+    const tw = new CityTwin(host.current, (ids) => pickRef.current(ids));
+    let last = '';
+    tw.onFocus = (p) => { const k = p ? `${Math.round(p.x)},${Math.round(p.y)}` : ''; if (k !== last) { last = k; setFocus(p); } };
+    tw.onHover = (issue, p) => setHover(issue && p ? { issue, ...p } : null);
     const l = new Timeline(lineHost.current);
-    table.current = t;
-    line.current = l;
-    const offT = back.add(t), offL = back.add(l);
-    return () => { offT(); offL(); table.current = null; line.current = null; };
+    twin.current = tw; line.current = l;
+    const a = back.add(tw), b = back.add(l);
+    return () => { a(); b(); twin.current = null; line.current = null; };
   }, [back]);
 
-  useEffect(() => { table.current?.setIssues(issues); }, [issues, back]);
-  useEffect(() => { table.current?.setSelected(selectedId); }, [selectedId, back]);
-  useEffect(() => { table.current?.setCursor(cursor); }, [cursor, back]);
+  useEffect(() => { twin.current?.setIssues(issues); }, [issues, back]);
+  useEffect(() => { twin.current?.setSelected(selectedId); }, [selectedId, back]);
+  useEffect(() => { twin.current?.setCursor(cursor); }, [cursor, back]);
 
   const hours = stats?.hourly ?? [];
   const t0 = hours[0]?.t ?? Date.now() - 48 * 3600_000;
   const t1 = (hours[hours.length - 1]?.t ?? Date.now()) + 3600_000;
   useEffect(() => { line.current?.setData(hours.map((h) => h.count)); }, [hours, back]);
-  useEffect(() => {
-    const x = cursor === null ? 1 : (cursor - t0) / (t1 - t0);
-    line.current?.setCursor(Math.min(1, Math.max(0, x)));
-  }, [cursor, t0, t1, back]);
+  useEffect(() => { line.current?.setCursor(cursor === null ? 1 : Math.min(1, Math.max(0, (cursor - t0) / (t1 - t0)))); }, [cursor, t0, t1, back]);
   useEffect(() => { line.current?.setHover(hoverX ?? -1); }, [hoverX]);
 
   const selected = issues.find((i) => i.id === selectedId) ?? null;
-  const open = issues.filter((i) => i.status !== 'resolved');
   const legend = useMemo(() => {
-    const seen = new Map<string, number>();
-    for (const i of open) seen.set(i.category, (seen.get(i.category) ?? 0) + 1);
-    return [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-  }, [open]);
+    const m = new Map<string, number>();
+    for (const i of issues) if (i.status !== 'resolved') m.set(i.category, (m.get(i.category) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [issues]);
 
   const scrub = (e: React.PointerEvent<HTMLDivElement>) => {
     const b = e.currentTarget.getBoundingClientRect();
@@ -71,33 +67,38 @@ export function CommandTable({ issues, stats, selectedId, cursor, onCursor, onPi
   };
 
   return (
-    <section className="command-table" aria-label="City table: open reports across downtown Ottawa">
-      <div ref={tableHost} className="table-host">
-        {!back && <div className="table-fallback">3D city table needs WebGL.</div>}
-        <div className="table-hud">
-          <span className="hud-kicker">Downtown Ottawa · {cursor ? `rewound to ${clock(cursor)}` : 'live'}</span>
-          <ul className="hud-legend">
-            {legend.map(([c, n]) => (
-              <li key={c}><i style={{ background: category(c).color }} />{category(c).label}<b>{n}</b></li>
-            ))}
+    <section className="twin" aria-label={t('twin')}>
+      <div ref={host} className="twin-host">
+        {!back && <div className="twin-fallback">WebGL is needed for the 3D city.</div>}
+        <div className="twin-hud">
+          <p className="twin-kicker">{t('twin')}</p>
+          <p className="twin-state">{cursor ? `${t('rewound')} ${clock(cursor)}` : <><i className="live-dot" /> {t('live')}</>}</p>
+          <ul className="twin-legend">
+            {legend.map(([c, n]) => <li key={c}><i style={{ background: category(c).color }} />{category(c).label}<b>{n}</b></li>)}
           </ul>
         </div>
         {selected && focus && (
-          <div className="table-pin" style={{ left: focus.x, top: focus.y }}>
-            <span style={{ borderColor: category(selected.category).color }}>
-              <small>{ticketId(selected)}</small>{selected.title}
-            </span>
+          <div className="twin-pin" style={{ left: focus.x, top: focus.y }}>
+            <span style={{ borderColor: category(selected.category).color }}><small>{ticketId(selected)} · {STATUS_LABEL[selected.status]}</small>{selected.title}</span>
           </div>
         )}
-        <div className="table-hint">drag to turn · click a tower</div>
+        {hover && hover.issue.id !== selectedId && (
+          <div className="twin-tip" style={{ left: hover.x + 14, top: hover.y + 14 }}>
+            <small>{ticketId(hover.issue)} · priority {hover.issue.priority}</small>
+            <strong>{hover.issue.title}</strong>
+            <span>{hover.issue.address} · {hover.issue.reports} residents</span>
+          </div>
+        )}
+        <p className="twin-hint">{t('dragHint')}</p>
+        <p className="twin-attrib">© OpenStreetMap contributors</p>
       </div>
-      <div className="timeline-wrap">
-        <div className="timeline-labels"><span>48 h ago</span><span>{cursor ? clock(cursor) : 'now'}</span></div>
+      <div className="timeline">
+        <div className="timeline-labels"><span>{t('hoursAgo')}</span><span>{cursor ? clock(cursor) : t('now')}</span></div>
         <div
           ref={lineHost}
           className="timeline-host"
           role="slider"
-          aria-label="Rewind the city"
+          aria-label="Rewind the city (48 hours)"
           aria-valuemin={0}
           aria-valuemax={48}
           aria-valuenow={cursor ? Math.round((cursor - t0) / 3600_000) : 48}
@@ -107,10 +108,9 @@ export function CommandTable({ issues, stats, selectedId, cursor, onCursor, onPi
           onPointerLeave={() => setHoverX(null)}
           onDoubleClick={() => onCursor(null)}
           onKeyDown={(e) => {
-            const step = 3600_000;
             const cur = cursor ?? t1;
-            if (e.key === 'ArrowLeft') onCursor(Math.max(t0, cur - step));
-            if (e.key === 'ArrowRight') onCursor(cur + step >= t1 ? null : cur + step);
+            if (e.key === 'ArrowLeft') onCursor(Math.max(t0, cur - 3600_000));
+            if (e.key === 'ArrowRight') onCursor(cur + 3600_000 >= t1 ? null : cur + 3600_000);
             if (e.key === 'End') onCursor(null);
           }}
         />

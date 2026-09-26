@@ -1,43 +1,32 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { ArrowUpRight, Camera, MapPin } from 'lucide-react';
-import { Auth0Mark, BrandMark } from './BrandMark';
+import { ArrowRight } from 'lucide-react';
+import { useLang } from '../i18n';
+import { Auth0Mark } from './BrandMark';
+import { GcFooter, GcHeader } from './GcChrome';
 
 export function LoginScreen() {
   const { loginWithRedirect } = useAuth0();
+  const { lang } = useLang();
+  const fr = lang === 'fr';
 
   return (
-    <main className="login-page">
-      <div className="login-console">
-        <header className="login-header">
-          <BrandMark />
-        </header>
-
-        <section className="login-hero">
-          <div className="login-message">
-            <h1>Every report.<br />One clear response.</h1>
-            <p>Review public-space issues, verify their location, and give field teams the context they need to act.</p>
-            <button type="button" onClick={() => loginWithRedirect()}>
-              Continue to sign in <ArrowUpRight size={19} />
-            </button>
-          </div>
-
-          <div className="login-preview" aria-hidden="true">
-            <div className="preview-map">
-              <div className="preview-streets"><i /><i /><i /><i /></div>
-              <span className="preview-pin"><MapPin size={19} /></span>
-              <div className="map-caption"><span>Live location</span><strong>45.4224, −75.6896</strong></div>
-            </div>
-            <div className="preview-report">
-              <div><span className="priority-tag priority-urgent">Urgent</span><small>OTT-1832</small></div>
-              <h2>Heaved slab blocks the sidewalk</h2>
-              <p>225 Laurier Ave W, Centretown</p>
-              <footer><span>Accessibility</span><span><Camera size={14} /> 2 photos</span></footer>
-            </div>
-          </div>
-        </section>
-
-        <footer className="login-footer"><span><Auth0Mark /> Secured by Auth0</span></footer>
-      </div>
-    </main>
+    <div className="login-page">
+      <GcHeader />
+      <main className="login-body" id="main">
+        <h1>{fr ? 'Chaque signalement. Une réponse claire.' : 'Every report. One clear response.'}</h1>
+        <p>
+          {fr
+            ? 'Triez les signalements des résidents, vérifiez le lieu sur le jumeau numérique du centre-ville et donnez aux équipes le contexte nécessaire pour agir.'
+            : 'Triage what residents report, verify it on the downtown digital twin, and give field crews the context they need to act.'}
+        </p>
+        <div>
+          <button type="button" onClick={() => loginWithRedirect()}>
+            {fr ? 'Se connecter avec le compte municipal' : 'Sign in with your City account'} <ArrowRight size={18} aria-hidden="true" />
+          </button>
+          <small><Auth0Mark /> {fr ? 'Authentification sécurisée par Auth0' : 'Secured by Auth0'}</small>
+        </div>
+      </main>
+      <GcFooter />
+    </div>
   );
 }

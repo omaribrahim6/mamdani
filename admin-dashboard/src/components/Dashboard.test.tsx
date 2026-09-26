@@ -55,7 +55,7 @@ describe('authenticated report workspace', () => {
     render(<Dashboard />);
     fireEvent.click(await screen.findByRole('button', { name: /Open OTT-1832/i }));
     fireEvent.click(screen.getByRole('button', { name: /Mark resolved/ }));
-    fireEvent.click(await screen.findByRole('tab', { name: 'resolved' }));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Resolved' }));
     expect(await screen.findByRole('button', { name: /Open OTT-1832/i })).toBeInTheDocument();
   });
 
@@ -69,7 +69,7 @@ describe('authenticated report workspace', () => {
 describe('login screen', () => {
   it('starts Auth0 redirect login from the primary action', () => {
     render(<LoginScreen />);
-    fireEvent.click(screen.getByRole('button', { name: /Continue to sign in/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Sign in with your City account/i }));
     expect(auth.loginWithRedirect).toHaveBeenCalledOnce();
   });
 });

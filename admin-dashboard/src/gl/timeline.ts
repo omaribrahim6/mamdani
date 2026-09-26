@@ -27,7 +27,7 @@ void main() {
   float glow = exp(-px * px / 60.0) * 0.45;
   float area = step(y, v) * step(0.0, y) * (0.10 + 0.18 * y);
   float past = step(uv.x, uCursor);
-  vec3 cream = vec3(1.0, 0.67, 0.0); // marigold
+  vec3 cream = vec3(0.62, 0.76, 0.94); // GC link blue on dark
   vec3 col = cream * (line + glow) * mix(0.28, 1.0, past) + cream * area * mix(0.25, 1.0, past);
   // hour ticks
   float tick = step(0.985, fract(uv.x * 48.0)) * step(uv.y, 0.1) * 0.3;

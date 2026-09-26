@@ -4,7 +4,8 @@ import { Auth0Provider } from '@auth0/auth0-react';
 import App from './App';
 import '@fontsource-variable/manrope';
 import './styles.css';
-import './command.css';
+import './gc.css';
+import { LangProvider } from './i18n';
 import { GLProvider } from './gl/GLProvider';
 
 const domain = import.meta.env.VITE_AUTH0_DOMAIN;
@@ -14,6 +15,7 @@ const root = createRoot(document.getElementById('root')!);
 
 root.render(
   <StrictMode>
+    <LangProvider>
     <GLProvider>
     {domain && clientId ? (
       <Auth0Provider
@@ -36,5 +38,6 @@ root.render(
       </main>
     )}
     </GLProvider>
+    </LangProvider>
   </StrictMode>,
 );

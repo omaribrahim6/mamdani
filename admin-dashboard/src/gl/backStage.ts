@@ -29,27 +29,18 @@ float fbm(vec2 p) { float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { v += a
 
 void main() {
   vec2 px = vUv * uRes;
-  // coarse tar and fine aggregate
-  float tar = fbm(px / 420.0 + uTime * 0.004);
-  float agg = hash(floor(px / 1.5));
-  float stone = step(0.985, hash(floor(px / 3.0) + 7.0));
-  vec3 col = vec3(0.012, 0.070, 0.135); // navy night asphalt
-  col += (tar - 0.5) * 0.030;
-  col += (agg - 0.5) * 0.018;
-  col += stone * 0.035;
-  // a faded lane line that runs diagonally behind everything
-  vec2 q = px / uRes.y;
-  float lane = abs(fract((q.x * 0.35 + q.y * 0.9) * 1.6) - 0.5);
-  float dash = step(0.5, fract((q.x * 0.9 - q.y * 0.35) * 5.0));
-  col += vec3(1.0, 0.67, 0.0) * smoothstep(0.012, 0.0, lane) * dash * 0.035 * fbm(px / 60.0);
-  // streetlight pool that follows the cursor, slow and warm
+  // GC navy survey sheet: faint topographic contours over a very soft grain
+  float h = fbm(px / 520.0 + vec2(uTime * 0.003, 0.0));
+  float lines = abs(fract(h * 14.0) - 0.5);
+  float contour = smoothstep(0.035, 0.0, lines - 0.0) * 0.5 + smoothstep(0.02, 0.0, abs(fract(h * 2.8) - 0.5)) * 0.5;
+  vec3 col = vec3(0.078, 0.110, 0.149);
+  col += vec3(0.62, 0.76, 0.94) * contour * 0.028;
+  // the operator's cursor lifts the sheet slightly, like a desk lamp
   float d = distance(px, uMouse);
-  col += vec3(1.0, 0.67, 0.0) * exp(-d * d / (2.0 * 380.0 * 380.0)) * 0.06 * uCalm;
-  // vignette
+  col += vec3(0.62, 0.76, 0.94) * exp(-d * d / (2.0 * 420.0 * 420.0)) * 0.035 * uCalm;
   vec2 c = vUv - 0.5;
-  col *= 1.0 - dot(c, c) * 0.9;
-  // film grain, animated
-  col += (hash(px + fract(uTime) * 91.0) - 0.5) * 0.012;
+  col *= 1.0 - dot(c, c) * 0.55;
+  col += (hash(px + fract(uTime) * 91.0) - 0.5) * 0.008;
   gl_FragColor = vec4(col, 1.0);
 }`;
 
@@ -136,5 +127,6 @@ export class BackStage {
     cancelAnimationFrame(this.raf);
     removeEventListener('pointermove', this.onMove);
     this.renderer.dispose();
+    this.renderer.forceContextLoss();
   }
 }

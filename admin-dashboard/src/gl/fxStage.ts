@@ -41,9 +41,9 @@ void main() {
     float front = (vUv.x * 0.7 + (1.0 - vUv.y) * 0.3) * 0.75 + n * 0.35;
     float burnt = step(front, uBurn * 1.15);
     float glowEdge = smoothstep(0.06, 0.0, abs(front - uBurn * 1.15));
-    vec3 green = vec3(1.0, 0.67, 0.0); // marigold burn front
+    vec3 green = vec3(0.16, 0.62, 0.35); // GC success green front
     vec3 c = mix(outc.rgb, uBg, burnt);
-    c += green * glowEdge * 1.4 + vec3(0.91, 0.1, 0.0) * glowEdge * glowEdge * 1.1;
+    c += green * glowEdge * 1.4 + vec3(0.9, 1.0, 0.95) * glowEdge * glowEdge * 0.9;
     outc = vec4(c, max(max(outc.a, burnt), glowEdge));
   }
   gl_FragColor = outc;
@@ -78,7 +78,7 @@ export class FxStage {
   private clipEl: HTMLElement | null = null;
   private raf = 0;
   private last = performance.now();
-  private bg = new THREE.Color('#041f3d'); // must match --queue
+  private bg = new THREE.Color('#1b2633'); // must match --surface (queue background)
 
   constructor(readonly canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, premultipliedAlpha: false });
@@ -224,5 +224,5 @@ export class FxStage {
     r.setScissorTest(false);
   };
 
-  dispose() { cancelAnimationFrame(this.raf); this.renderer.dispose(); }
+  dispose() { cancelAnimationFrame(this.raf); this.renderer.dispose(); this.renderer.forceContextLoss(); }
 }

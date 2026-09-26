@@ -38,7 +38,7 @@ void main() {
   }
   float shown = step(iuv.y, reveal);
   vec3 col = mix(vec3(0.07, 0.07, 0.065), photo, shown);
-  col += vec3(1.0, 0.67, 0.0) * exp(-pow((iuv.y - reveal) * uRes.y, 2.0) / 20.0) * (1.0 - reveal) * 0.9;
+  col += vec3(0.62, 0.76, 0.94) * exp(-pow((iuv.y - reveal) * uRes.y, 2.0) / 20.0) * (1.0 - reveal) * 0.9;
 
   if (uHasBox > 0.5) {
     vec2 c = vec2((uBox.y + uBox.w) * 0.5, (uBox.x + uBox.z) * 0.5);
@@ -49,17 +49,24 @@ void main() {
     float focus = smoothstep(0.0, 0.03, d) * smoothstep(0.6, 1.4, uT);
     float g = dot(col, vec3(0.299, 0.587, 0.114));
     col = mix(col, vec3(g) * 0.55, focus * 0.75);
-    // perimeter progress for the spray-on
-    vec2 q = p / hb;
-    float ang = atan(q.y, q.x) / 6.2831853 + 0.5;
-    float draw = clamp((uT - 1.0) / 0.9, 0.0, 1.0);
-    float onPath = step(ang, draw);
-    float w = 0.012 + 0.006 * noise(p * 40.0);
-    float ring = smoothstep(w, w * 0.4, abs(d));
-    float speck = step(0.55, hash(floor(p * 900.0))) * exp(-abs(d) * 60.0);
-    float spray = clamp(ring + speck * 0.7, 0.0, 1.0) * onPath;
-    float drip = step(abs(p.x - hb.x * 0.6), 0.004) * step(hb.y, p.y) * step(p.y, hb.y + 0.05 * clamp((uT - 1.9) / 0.6, 0.0, 1.0));
-    col = mix(col, uColor * (0.9 + 0.2 * noise(p * 80.0)), max(spray, drip));
+    // detection frame: corner brackets that snap in, a thin outline, a scan line sweeping the box
+    float px1 = 1.0 / uRes.y * (uImg.x / uImg.y) * 1.2;
+    float k = clamp((uT - 1.0) / 0.45, 0.0, 1.0);
+    float grow = 1.0 + (1.0 - k) * 0.35;
+    vec2 hb2 = hb * grow;
+    vec2 a = abs(p) - hb2;
+    float edge = max(a.x, a.y);
+    float line = smoothstep(px1 * 2.2, 0.0, abs(edge)) * step(max(a.x, a.y), px1 * 3.0);
+    vec2 arm = hb2 * 0.28;
+    float corner = step(hb2.x - arm.x, abs(p.x)) + step(hb2.y - arm.y, abs(p.y));
+    float bracket = line * step(1.5, corner) * k;
+    float thin = smoothstep(px1 * 1.1, 0.0, abs(edge)) * 0.35 * k;
+    float sy = mix(-hb.y, hb.y, fract((uT - 1.4) * 0.35));
+    float scan = smoothstep(px1 * 2.0, 0.0, abs(p.y - sy)) * step(abs(p.x), hb.x) * step(1.4, uT) * 0.55;
+    float inside = step(d, 0.0);
+    col = mix(col, uColor, inside * 0.06 * k);
+    col = mix(col, vec3(1.0), bracket * 0.92);
+    col = mix(col, uColor, max(thin, scan));
   }
   // grain
   col += (hash(vUv * uRes + fract(uTime) * 50.0) - 0.5) * 0.03;
