@@ -75,6 +75,8 @@ export function CaptureScreen() {
   const cam = useRef<CameraView>(null);
   const camReady = useRef(false);
   const camBusy = useRef(false);
+  // capture at 1080p, not the full sensor: every frame for Live is a capture, and full-size ones stall the preview
+  const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
 
   const [f, dispatch] = useReducer(flow, initialFlow);
   const state = f.state;
@@ -264,25 +266,37 @@ export function CaptureScreen() {
     if (state === 'LIVE_IDLE' || state === 'REPORT_CLARIFYING') p.act(talking ? 'talk' : hearing ? 'listen' : 'watch');
   }, [speaking, hearing, state, mode]);
 
-  // what the camera sees, for Live — only while he's looking (never after the photo)
+  // what the camera sees, for Live — only while he's looking (never after the photo). Each frame is a
+  // capture, so they're paced: quicker while you're talking to him, slower when it's quiet.
+  const hearingRef = useRef(false);
+  hearingRef.current = hearing;
   useEffect(() => {
     if (!framesOpen(state) || liveStatus !== 'live' || !camPerm?.granted) return;
-    const t = setInterval(async () => {
-      if (!cam.current || !camReady.current || camBusy.current || !framesOpen(stateRef.current)) return;
-      camBusy.current = true;
-      try {
-        const shot = await cam.current.takePictureAsync({ quality: 0.3, skipProcessing: true, shutterSound: false });
-        if (shot && framesOpen(stateRef.current)) {
-          const small = await shrink(shot.uri, shot.width, shot.height, 512, 0.5, true);
-          if (small.base64) live.sendFrame(small.base64);
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      if (!alive) return;
+      if (cam.current && camReady.current && !camBusy.current && framesOpen(stateRef.current)) {
+        camBusy.current = true;
+        try {
+          const shot = await cam.current.takePictureAsync({ quality: 0.2, skipProcessing: true, shutterSound: false });
+          if (shot && alive && framesOpen(stateRef.current)) {
+            const small = await shrink(shot.uri, shot.width, shot.height, 512, 0.5, true);
+            if (small.base64) live.sendFrame(small.base64);
+          }
+        } catch {
+          /* skip this frame */
+        } finally {
+          camBusy.current = false;
         }
-      } catch {
-        /* skip this frame */
-      } finally {
-        camBusy.current = false;
       }
-    }, 1100);
-    return () => clearInterval(t);
+      if (alive) timer = setTimeout(tick, hearingRef.current ? 1200 : 3000);
+    };
+    timer = setTimeout(tick, 400);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   }, [state, liveStatus, camPerm?.granted, live]);
 
   /** The evidence photo. */
@@ -620,7 +634,14 @@ export function CaptureScreen() {
             facing="back"
             mode="picture"
             animateShutter={false}
-            onCameraReady={() => (camReady.current = true)}
+            pictureSize={pictureSize}
+            onCameraReady={async () => {
+              camReady.current = true;
+              if (pictureSize) return;
+              const sizes = await cam.current?.getAvailablePictureSizesAsync().catch(() => [] as string[]);
+              const pick = ['1920x1080', 'High', '1280x720', 'Medium'].find((x) => sizes?.includes(x));
+              if (pick) setPictureSize(pick);
+            }}
           />
         ) : (
           <View style={[StyleSheet.absoluteFill, styles.noCamera]}>
