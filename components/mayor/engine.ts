@@ -77,7 +77,13 @@ export class RigStage {
   private posture = [new SecondOrder(1.4, 0.8, 0), new SecondOrder(1.4, 0.8, 0), new SecondOrder(1.4, 0.8, 0)];
   private face = neutralFace();
   private faceSprings = FACE_SHAPES.map((k) =>
-    k.startsWith('brow') || k.startsWith('squint') ? new SecondOrder(4.5, 0.6, 0) : k === 'smile' ? new SecondOrder(2.5, 0.8, 0) : new SecondOrder(11, 0.85, 0),
+    k.startsWith('brow') || k.startsWith('squint')
+      ? new SecondOrder(4.5, 0.6, 0)
+      : k === 'smile'
+        ? new SecondOrder(2.5, 0.8, 0)
+        : k === 'mouthRound'
+          ? new SecondOrder(3, 1, 0) // a round mouth only for a held "oo" (~200 ms), not every dark blip
+          : new SecondOrder(11, 0.85, 0),
   );
 
   constructor(target: HTMLCanvasElement | StageSurface, cam: { fov: number; shadows: boolean }) {
@@ -229,7 +235,8 @@ export class RigStage {
       let dark = 0;
       if (this.talk) {
         if (now - this.levelAt < 250) {
-          open = Math.min(1, this.level * 2.2);
+          // quiet talking sits at slightly-open; only stressed peaks reach wide open (Rhubarb B/C/D)
+          open = Math.max(0, Math.min(1, (this.level - 0.08) * 1.6));
           bright = this.voice.bright;
           dark = this.voice.dark;
         } else if (this.analyser) {
