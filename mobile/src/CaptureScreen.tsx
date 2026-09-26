@@ -38,7 +38,7 @@ const MOOD: Record<CharacterDecision['emotion'], Mood> = {
   CHEERFUL: 'impressed',
 };
 const PROCESSING_LINES = ['Looking at it…', 'Understanding the issue…', 'Checking nearby reports…'];
-const WINDOW = 84; // Mamdani's round window
+const WINDOW = 116; // Mamdani's round window
 const ACCENT = C.hardhat;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -53,7 +53,7 @@ async function shrink(uri: string, w: number, h: number, long: number, compress:
 export function CaptureScreen() {
   const insets = useSafeAreaInsets();
   const { width: W, height: H } = useWindowDimensions();
-  const viewH = Math.round(Math.min(H * 0.74, H - 196 - insets.bottom));
+  const viewH = Math.round(Math.min(H * 0.74, H - 222 - insets.bottom));
   const where = useWhere();
   const [camPerm, requestCam] = useCameraPermissions();
   const cam = useRef<CameraView>(null);
@@ -773,12 +773,12 @@ const styles = StyleSheet.create({
   options: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 10 },
   option: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.14)' },
   optionText: { fontFamily: F.uiBold, fontSize: T.sm, color: '#fff', paddingTop: 2 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 22 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18 },
   side: { flex: 1, justifyContent: 'center' },
   window: { width: WINDOW, height: WINDOW, borderRadius: WINDOW / 2, padding: 3, backgroundColor: 'rgba(255,255,255,0.14)' },
   windowListening: { backgroundColor: ACCENT },
   windowInner: { flex: 1, borderRadius: WINDOW / 2, overflow: 'hidden' },
-  liveDot: { position: 'absolute', right: 5, top: 5, width: 11, height: 11, borderRadius: 6, backgroundColor: ACCENT, borderWidth: 2, borderColor: '#000' },
+  liveDot: { position: 'absolute', right: 9, top: 9, width: 11, height: 11, borderRadius: 6, backgroundColor: ACCENT, borderWidth: 2, borderColor: '#000' },
   shutter: { width: 80, height: 80, alignItems: 'center', justifyContent: 'center' },
   shutterRing: { position: 'absolute', width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: '#fff' },
   shutterCore: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#fff' },
