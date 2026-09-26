@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
 import type { Issue, ReportResponse } from '../../lib/types';
 
 // The phone is a client of the web app's API: Gemini, dedupe and the Tiger Data store all run there.
@@ -23,8 +25,10 @@ export async function submitReport(p: {
   final?: boolean;
 }): Promise<ReportResponse> {
   const fd = new FormData();
-  // React Native's FormData takes { uri, name, type } for files
-  fd.append('photo', { uri: p.photo.uri, name: 'photo.jpg', type: 'image/jpeg' } as unknown as Blob);
+  // Expo's fetch (the global one since SDK 52+) reads files from expo-file-system File objects;
+  // React Native's old { uri, name, type } parts make it throw before anything is sent.
+  if (Platform.OS === 'web') fd.append('photo', await (await fetch(p.photo.uri)).blob(), 'photo.jpg');
+  else fd.append('photo', new File(p.photo.uri) as unknown as Blob, 'photo.jpg');
   fd.append('sessionId', p.sessionId);
   fd.append('lat', String(p.lat));
   fd.append('lng', String(p.lng));
@@ -42,7 +46,8 @@ export async function submitReport(p: {
       if (r.ok) return j as ReportResponse;
       last = new Error(j.error || 'I couldn’t file that one. Try again.');
       if (r.status < 500) break;
-    } catch {
+    } catch (e) {
+      console.warn('submit failed', e);
       last = new Error('No connection to the city. Check your signal and try again.');
     }
     await new Promise((res) => setTimeout(res, 800 * (attempt + 1)));
