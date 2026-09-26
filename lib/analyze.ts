@@ -15,7 +15,7 @@ const CITY = process.env.NEXT_PUBLIC_CITY || 'Ottawa';
 const SCHEMA = {
   type: 'object',
   properties: {
-    isCivicIssue: { type: 'boolean', description: 'false if nothing in the frame is a public-infrastructure problem' },
+    isCivicIssue: { type: 'boolean', description: 'true for anything someone should clean up, repair or check (litter anywhere, vandalism, graffiti, broken things, hazards, infrastructure). false ONLY if nothing in the frame is wrong at all.' },
     category: { type: 'string', enum: CATEGORY_IDS },
     title: { type: 'string', description: 'What and where in the frame, max 7 words, sentence case. e.g. "Deep pothole in the curb lane"' },
     summary: { type: 'string', description: 'One or two plain sentences a city crew could act on. Mention size/extent estimates.' },
@@ -96,7 +96,7 @@ const PROMPT = `You are the intake inspector for the City of ${CITY}'s public-wo
 A resident pointed their phone at something in the city and said "Mamdani, fix this."
 You get the photo they framed${'' /* video appended when present */} and possibly a short video with their voice.
 
-Decide what public-infrastructure problem is shown and turn it into a report a crew can act on.
+Decide what problem is shown (anything that needs cleaning up, fixing or checking) and turn it into a report a crew can act on.
 - Judge from what you can SEE. Use the voice only for context (location hints, how long it's been there).
 - The resident may be casual, sarcastic or swear. Translate that into a neutral report.
 - Look beyond what they said: note accessibility barriers they may not have mentioned
@@ -104,9 +104,12 @@ Decide what public-infrastructure problem is shown and turn it into a report a c
   Changes in level over ~1.3 cm on a pedestrian route are a trip hazard and a wheelchair barrier.
 - Severity is about the asset. Safety risk is about people. Keep them separate.
 - The box must tightly frame the problem in the photo (not the whole road).
-- Public facilities count, indoors too: libraries, transit stations, rec centres, city buildings, parks.
-  Litter on a table in a public library is a real (low-severity) report for the facility's operator.
-- If nothing is a public-infrastructure problem, set isCivicIssue false, category "other", and have the mayor gently ask what's wrong.`;
+- Be generous about what counts. Report anything someone should clean up, repair or check, wherever it is:
+  garbage or litter anywhere (streets, parks, libraries, campuses, transit, a table, a hallway), vandalism and
+  graffiti, broken fixtures or furniture, spills, dumping, overflowing bins, hazards, and of course roads,
+  sidewalks, lights and signals. Low-severity things are still real reports; say so with a low severity.
+  Vandalism goes under "graffiti" (By-law), litter and dumping under "waste".
+- Only if nothing in the photo is wrong at all, set isCivicIssue false, category "other", and have the mayor gently ask what's wrong.`;
 
 const gemini = genai;
 export const hasGemini = hasAI;

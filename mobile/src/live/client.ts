@@ -44,6 +44,8 @@ export class LiveClient {
   onToolCall?: (call: ToolCall) => void;
   /** the first time a session is ready (not on silent resumptions) */
   onFirstReady?: () => void;
+  /** change the session setup the server hands out before it's sent (the demo branch uses this) */
+  adjustSetup?: (setup: Record<string, unknown>) => Record<string, unknown>;
 
   private ws: WebSocket | null = null;
   private info: SessionInfo | null = null;
@@ -88,7 +90,7 @@ export class LiveClient {
     ws.onopen = () => {
       ws.send(
         JSON.stringify({
-          setup: { model: info.model, ...info.setup, sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {} },
+          setup: { model: info.model, ...(this.adjustSetup?.(info.setup) ?? info.setup), sessionResumption: this.resumeHandle ? { handle: this.resumeHandle } : {} },
         }),
       );
     };

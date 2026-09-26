@@ -43,10 +43,41 @@ const MOOD: Record<CharacterDecision['emotion'], Mood> = {
   CONFUSED: 'confused',
   CHEERFUL: 'impressed',
 };
-const PROCESSING_LINES = ['Looking at it…', 'Understanding the issue…', 'Checking nearby reports…'];
+const PROCESSING_LINES = ['Mamdani’s getting ready…', 'Looking over your photo…', 'Checking nearby reports…'];
 const WINDOW = 124; // Mamdani's round window
 const ACCENT = C.hardhat;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// ── demo branch: one scripted take for the video ──
+// Say "fix this pothole" (or tap the camera view): he answers with a pre-recorded Orus line, starts
+// walking out on "I'll send it over!", steps into the photo in his construction gear and plants the flag.
+// No network in the loop except Live's ears; nothing is filed.
+const DEMO = true;
+const DEMO_LINE = 'Worry not, young citizen! My finest engineers will fix this ASAP. I’ll send it over!';
+const DEMO_EXIT_AT = 3500; // into the 5.1 s line, on "ASAP": he's on his way as he says "I'll send it over!"
+const DEMO_TRIGGER = /fix (this|it)\b/i;
+const demoDecision = (address: string): ReportDecision => ({
+  reportId: 'report_1849',
+  sessionId: 'demo',
+  issue: {
+    id: 1849,
+    type: 'pothole',
+    title: 'Deep pothole in the lane',
+    summary: 'A deep pothole in the driving lane.',
+    severity: 82,
+    safetyRisk: 74,
+    accessibilityImpact: 'moderate',
+    department: 'Roads Services',
+    address,
+    status: 'new',
+    duplicateCount: 1,
+    duplicate: false,
+    box: [470, 300, 760, 700], // centre-bottom of the frame: point the phone at the pothole
+  },
+  character: { outfit: 'CONSTRUCTION', animation: 'PLACE_FLAG', prop: 'WARNING_FLAG', emotion: 'DETERMINED', response: DEMO_LINE },
+  confidence: 0.94,
+  engine: 'demo',
+});
 
 /** Shrink a camera shot: 1600 px for evidence, 512 px for what Live sees. */
 async function shrink(uri: string, w: number, h: number, long: number, compress: number, base64 = false) {
@@ -75,6 +106,8 @@ export function CaptureScreen() {
   const cam = useRef<CameraView>(null);
   const camReady = useRef(false);
   const camBusy = useRef(false);
+  // capture at 1080p, not the full sensor: every frame for Live is a capture, and full-size ones stall the preview
+  const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
 
   const [f, dispatch] = useReducer(flow, initialFlow);
   const state = f.state;
@@ -89,8 +122,9 @@ export function CaptureScreen() {
   const scene = useRef<MayorStage | null>(null);
 
   // Gemini Live (his mind) and the phone's audio (his ears and voice)
-  const live = useRef(new LiveClient()).current;
-  const audio = useRef(new LiveAudio()).current;
+  // created once (useRef(new X()) would build, and throw away, a new one every render)
+  const [live] = useState(() => new LiveClient());
+  const [audio] = useState(() => new LiveAudio());
   const [liveStatus, setLiveStatus] = useState(live.status);
   const [micOk, setMicOk] = useState<boolean | null>(null);
   const [speaking, setSpeaking] = useState(false);
@@ -110,6 +144,11 @@ export function CaptureScreen() {
   const [mineOpen, setMineOpen] = useState(false);
   const [lastPhoto, setLastPhoto] = useState<string | null>(null);
   const devDecision = useRef<ReportDecision | null>(null);
+  // demo branch
+  const heardRef = useRef('');
+  const demoClip = useRef<Awaited<ReturnType<LiveAudio['loadClip']>>>(null);
+  const demoRunning = useRef(false);
+  const runDemoRef = useRef<(photo?: Media) => Promise<void>>(async () => {});
   const details = useRef<{ hazards: string[]; notes: string[] }>({ hazards: [], notes: [] });
 
   // motion
@@ -147,6 +186,27 @@ export function CaptureScreen() {
   // ── Live + audio wiring ──
   useEffect(() => {
     live.onStatus = setLiveStatus;
+    if (DEMO) {
+      // Live is only his ears here: no tools, no greeting, and whatever it says is never played
+      live.adjustSetup = ({ tools: _tools, ...setup }) => ({
+        ...setup,
+        systemInstruction: { parts: [{ text: 'Listen quietly. Reply with a single short "Mm." to anything.' }] },
+      });
+      // "…pothole" goes at once; "fix this" waits a beat so he doesn't talk over the rest of the sentence
+      let beat: ReturnType<typeof setTimeout> | undefined;
+      live.onHeard = (chunk) => {
+        heardRef.current = (heardRef.current + chunk).slice(-200);
+        clearTimeout(beat);
+        if (/pot ?holes?/i.test(heardRef.current)) void runDemoRef.current();
+        else if (DEMO_TRIGGER.test(heardRef.current)) beat = setTimeout(() => void runDemoRef.current(), 700);
+      };
+      void live.start();
+      return () => {
+        clearTimeout(beat);
+        live.stop();
+        void audio.dispose();
+      };
+    }
     live.onFirstReady = () => live.prompt('Begin the conversation with your greeting.');
     live.onAudio = (pcm) => {
       const s = stateRef.current;
@@ -230,6 +290,9 @@ export function CaptureScreen() {
         console.warn('mic failed', e);
         setMicOk(false);
       });
+      // Lyria-made "on his way" music for the wait while he gets ready
+      if (DEMO) demoClip.current = await audio.loadClip(require('../assets/audio/demo-line.wav'));
+      else void audio.loadMusic(require('../assets/audio/wait-loop.wav'));
     })();
     return () => {
       alive = false;
@@ -264,25 +327,37 @@ export function CaptureScreen() {
     if (state === 'LIVE_IDLE' || state === 'REPORT_CLARIFYING') p.act(talking ? 'talk' : hearing ? 'listen' : 'watch');
   }, [speaking, hearing, state, mode]);
 
-  // what the camera sees, for Live — only while he's looking (never after the photo)
+  // what the camera sees, for Live — only while he's looking (never after the photo). Each frame is a
+  // capture, so they're paced: quicker while you're talking to him, slower when it's quiet.
+  const hearingRef = useRef(false);
+  hearingRef.current = hearing;
   useEffect(() => {
-    if (!framesOpen(state) || liveStatus !== 'live' || !camPerm?.granted) return;
-    const t = setInterval(async () => {
-      if (!cam.current || !camReady.current || camBusy.current || !framesOpen(stateRef.current)) return;
-      camBusy.current = true;
-      try {
-        const shot = await cam.current.takePictureAsync({ quality: 0.3, skipProcessing: true, shutterSound: false });
-        if (shot && framesOpen(stateRef.current)) {
-          const small = await shrink(shot.uri, shot.width, shot.height, 512, 0.5, true);
-          if (small.base64) live.sendFrame(small.base64);
+    if (DEMO || !framesOpen(state) || liveStatus !== 'live' || !camPerm?.granted) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      if (!alive) return;
+      if (cam.current && camReady.current && !camBusy.current && framesOpen(stateRef.current)) {
+        camBusy.current = true;
+        try {
+          const shot = await cam.current.takePictureAsync({ quality: 0.2, skipProcessing: true, shutterSound: false });
+          if (shot && alive && framesOpen(stateRef.current)) {
+            const small = await shrink(shot.uri, shot.width, shot.height, 512, 0.5, true);
+            if (small.base64) live.sendFrame(small.base64);
+          }
+        } catch {
+          /* skip this frame */
+        } finally {
+          camBusy.current = false;
         }
-      } catch {
-        /* skip this frame */
-      } finally {
-        camBusy.current = false;
       }
-    }, 1100);
-    return () => clearInterval(t);
+      if (alive) timer = setTimeout(tick, hearingRef.current ? 1200 : 3000);
+    };
+    timer = setTimeout(tick, 400);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   }, [state, liveStatus, camPerm?.granted, live]);
 
   /** The evidence photo. */
@@ -314,8 +389,37 @@ export function CaptureScreen() {
     context: [live.recentConversation(), visual.current && `What Mamdani saw on camera: ${visual.current}`].filter(Boolean).join('\n'),
   });
 
+  /** The demo take: his line in his window (photo taken meanwhile), out on the last words, then the
+   *  usual flow with a hard-coded decision: into the photo in construction gear, flag down. */
+  const runDemo = async (photoOverride?: Media) => {
+    if (demoRunning.current || stateRef.current !== 'LIVE_IDLE') return;
+    demoRunning.current = true;
+    heardRef.current = '';
+    const t0 = Date.now();
+    setSaid(DEMO_LINE);
+    const shot = photoOverride ? Promise.resolve(photoOverride) : takeEvidence();
+    const clip = demoClip.current;
+    if (!(clip && audio.playClip(clip))) void sayOnDevice(DEMO_LINE);
+    let photo: Media;
+    try {
+      photo = await shot;
+    } catch {
+      audio.interrupt();
+      hush();
+      setSaid('');
+      setLine('The camera didn’t take the photo. Try again.');
+      demoRunning.current = false;
+      return;
+    }
+    await wait(DEMO_EXIT_AT - (Date.now() - t0));
+    devDecision.current = demoDecision(where.label ?? 'Bank St at Gladstone Ave');
+    dispatch({ type: 'SHUTTER', snapshot: { sessionId: 'demo', photo, lat: where.lat, lng: where.lng, capturedAt: Date.now(), context: '' } });
+  };
+  runDemoRef.current = runDemo;
+
   /** Manual report, for when Live can't be reached. */
   const manualCapture = async () => {
+    if (DEMO) return void runDemo();
     if (stateRef.current !== 'LIVE_IDLE') return;
     visual.current = '';
     try {
@@ -325,8 +429,58 @@ export function CaptureScreen() {
     }
   };
 
+  // ── analysis: starts the moment the snapshot is frozen, while he's already walking out ──
+  const runRef = useRef(0);
+  useEffect(() => {
+    if (state !== 'CAPTURED' || !f.snapshot) return;
+    const run = f.run;
+    runRef.current = run;
+    const snap = f.snapshot;
+    const answerText = f.answer;
+    (async () => {
+      try {
+        if (devDecision.current) {
+          await wait(DEMO ? 0 : 3200);
+          if (runRef.current === run) dispatch({ type: 'DECIDED', decision: devDecision.current });
+          return;
+        }
+        const res = await submitReport({ ...snap, answer: answerText, final: !!answerText });
+        if (runRef.current !== run) return;
+        if (res.status === 'clarify') dispatch({ type: 'CLARIFY', question: res.question, options: res.options });
+        else if (res.status === 'rejected') dispatch({ type: 'FAILED', message: res.message });
+        else {
+          details.current = { hazards: res.analysis.hazards, notes: res.analysis.accessibility.notes };
+          void saveMine({
+            issueId: res.decision.issue.id,
+            title: res.decision.issue.title,
+            category: res.decision.issue.type,
+            address: res.decision.issue.address,
+            at: Date.now(),
+            duplicate: res.decision.issue.duplicate,
+            photoUri: snap.photo.uri,
+          });
+          setLastPhoto(snap.photo.uri);
+          dispatch({ type: 'DECIDED', decision: res.decision });
+        }
+      } catch (e) {
+        if (runRef.current === run) dispatch({ type: 'FAILED', message: e instanceof Error ? e.message : 'I couldn’t file that one. Try again.' });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, f.run]);
+
+  /** The window pops open again and he walks back into it. */
+  const backToWindow = async () => {
+    win.sx.setValue(0);
+    win.sy.setValue(0);
+    Animated.parallel([
+      Animated.spring(win.sx, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 10 }),
+      Animated.spring(win.sy, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 10 }),
+    ]).start();
+    await portrait.current?.enterFromLeft('suit');
+  };
+
   // ── the orchestrator: side effects per state ──
-  const attempt = useRef(0);
   useEffect(() => {
     let alive = true;
     const p = portrait.current;
@@ -336,6 +490,8 @@ export function CaptureScreen() {
     switch (state) {
       case 'LIVE_IDLE': {
         setLine(null);
+        demoRunning.current = false;
+        heardRef.current = '';
         if (f.notice) {
           setLine(f.notice);
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -369,89 +525,15 @@ export function CaptureScreen() {
         };
       }
 
-      case 'CAPTURED':
+      case 'CAPTURED': {
+        // photo's in: he heads out straight away (the analysis effect above is already running)
         brackets.setValue(0);
-        dispatch({ type: 'PROCESSING' });
-        break;
-
-      case 'REPORT_PROCESSING': {
-        p?.act('think');
-        const n = ++attempt.current;
-        setLine(PROCESSING_LINES[0]);
-        const timers = [setTimeout(() => setLine(PROCESSING_LINES[1]), 1300), setTimeout(() => setLine(PROCESSING_LINES[2]), 2800)];
-        shimmer.setValue(0);
-        const sweep = Animated.loop(Animated.timing(shimmer, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }));
-        sweep.start();
-        (async () => {
-          if (!snap) return;
-          try {
-            if (devDecision.current) {
-              await wait(3200);
-              if (alive && n === attempt.current) dispatch({ type: 'DECIDED', decision: devDecision.current });
-              return;
-            }
-            const res = await submitReport({ ...snap, answer: f.answer, final: !!f.answer });
-            if (!alive || n !== attempt.current) return;
-            if (res.status === 'clarify') {
-              if (!answer({ status: 'needs_clarification', question: res.question, options: res.options })) tell(res.question);
-              dispatch({ type: 'CLARIFY', question: res.question, options: res.options });
-            } else if (res.status === 'rejected') {
-              if (!answer({ status: 'rejected', reason: res.message })) tell(res.message);
-              dispatch({ type: 'FAILED', message: res.message });
-            } else {
-              details.current = { hazards: res.analysis.hazards, notes: res.analysis.accessibility.notes };
-              void saveMine({
-                issueId: res.decision.issue.id,
-                title: res.decision.issue.title,
-                category: res.decision.issue.type,
-                address: res.decision.issue.address,
-                at: Date.now(),
-                duplicate: res.decision.issue.duplicate,
-                photoUri: snap.photo.uri,
-              });
-              setLastPhoto(snap.photo.uri);
-              dispatch({ type: 'DECIDED', decision: res.decision });
-            }
-          } catch (e) {
-            if (!alive) return;
-            const message = e instanceof Error ? e.message : 'I couldn’t file that one. Try again.';
-            if (!answer({ status: 'error' })) tell(message);
-            dispatch({ type: 'FAILED', message });
-          }
-        })();
-        return () => {
-          alive = false;
-          timers.forEach(clearTimeout);
-          sweep.stop();
-        };
-      }
-
-      case 'REPORT_CLARIFYING':
-        setLine(f.clarify?.question ?? null);
-        p?.act('listen');
-        break;
-
-      case 'REPORT_READY': {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setLine('Got it.');
-        setSaid('');
-        brackets.setValue(0);
-        Animated.timing(brackets, { toValue: 1, duration: 650, easing: Easing.bezier(0.2, 0.8, 0.2, 1), useNativeDriver: false }).start();
-        (async () => {
-          p?.look('you');
-          await wait(450);
-          // he changes into what the job needs, in his window, before heading out
-          await p?.suitUp(OUTFIT[d!.character.outfit]);
-          await wait(250);
-          if (alive) dispatch({ type: 'EXIT' });
-        })();
-        return () => {
-          alive = false;
-        };
+        if (!DEMO) setLine('Got it.');
+        const t = setTimeout(() => dispatch({ type: 'EXIT' }), DEMO ? 0 : 350);
+        return () => clearTimeout(t);
       }
 
       case 'CHARACTER_EXITING': {
-        setLine(null);
         (async () => {
           await p?.exitLeft();
           // the empty window closes: ◯ → () → | → gone
@@ -466,15 +548,59 @@ export function CaptureScreen() {
               Animated.timing(win.sy, { toValue: 0, duration: 90, easing: Easing.in(Easing.quad), useNativeDriver: true }),
             ]).start(() => done()),
           );
-          await wait(180);
-          if (alive) dispatch({ type: 'ENTER' });
+          if (!DEMO) await wait(150);
+          if (alive) dispatch({ type: 'EXITED' });
         })();
         return () => {
           alive = false;
         };
       }
 
+      case 'REPORT_PROCESSING': {
+        // he's off getting ready: the waiting music, and the photo being looked over
+        audio.startMusic();
+        setLine(PROCESSING_LINES[0]);
+        const timers = [setTimeout(() => setLine(PROCESSING_LINES[1]), 1600), setTimeout(() => setLine(PROCESSING_LINES[2]), 3400)];
+        shimmer.setValue(0);
+        const sweep = Animated.loop(Animated.timing(shimmer, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }));
+        sweep.start();
+        return () => {
+          timers.forEach(clearTimeout);
+          sweep.stop();
+        };
+      }
+
+      case 'CHARACTER_RECALLED': {
+        // Gemini needs to ask something, or turned the photo down: he comes back to his window to say so
+        audio.stopMusic(0.5);
+        setLine(null);
+        const outcome = f.outcome;
+        (async () => {
+          await backToWindow();
+          if (!alive || !outcome) return;
+          dispatch({ type: 'RECALLED' });
+          if (outcome.kind === 'clarify') {
+            if (!answer({ status: 'needs_clarification', question: outcome.question, options: outcome.options })) tell(outcome.question);
+          } else if (!answer({ status: 'rejected', reason: outcome.message })) tell(outcome.message);
+        })();
+        return () => {
+          alive = false;
+        };
+      }
+
+      case 'REPORT_CLARIFYING':
+        setLine(f.clarify?.question ?? null);
+        p?.act('listen');
+        break;
+
       case 'CHARACTER_ENTERING': {
+        // the decision is in: the music fades as he steps into the photo, dressed for the job
+        audio.stopMusic(0.9);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setLine(null);
+        setSaid('');
+        brackets.setValue(0);
+        Animated.timing(brackets, { toValue: 1, duration: 650, easing: Easing.bezier(0.2, 0.8, 0.2, 1), useNativeDriver: false }).start();
         const c = d!.character;
         void scene.current
           ?.perform(OUTFIT[c.outfit], {
@@ -483,6 +609,7 @@ export function CaptureScreen() {
             emotion: c.emotion,
             action: c.animation,
             prop: c.prop,
+            walk: DEMO ? 1.3 : undefined,
             onArrive: () => dispatch({ type: 'ACT' }),
             onThunk: () => {
               void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -504,6 +631,10 @@ export function CaptureScreen() {
       case 'CHARACTER_SPEAKING': {
         // the animation timeline owns WHEN he speaks; the decision owns WHAT he says; Live is the voice
         const text = d!.character.response;
+        if (DEMO) {
+          dispatch({ type: 'SPOKEN' }); // he said it on his way out
+          break;
+        }
         (async () => {
           if (live.status === 'live') {
             const spoken = new Promise<void>((res) => (lineSpoken.current = res));
@@ -543,14 +674,7 @@ export function CaptureScreen() {
           await scene.current?.exitLeft();
           scene.current?.clear();
           brackets.setValue(0);
-          // his window pops back open and he walks back into it
-          win.sx.setValue(0);
-          win.sy.setValue(0);
-          Animated.parallel([
-            Animated.spring(win.sx, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 10 }),
-            Animated.spring(win.sy, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 10 }),
-          ]).start();
-          await portrait.current?.enterFromLeft('suit');
+          await backToWindow();
           if (!alive) return;
           dispatch({ type: 'RETURNED' });
           visual.current = '';
@@ -576,6 +700,7 @@ export function CaptureScreen() {
         dispatch({ type: 'SHUTTER', snapshot: { sessionId: newSessionId(), photo, lat: where.lat, lng: where.lng, capturedAt: Date.now(), context: '' } });
       },
       next: () => dispatch({ type: 'NEW_REPORT' }),
+      demo: (photo: Media) => runDemoRef.current(photo),
       state: () => stateRef.current,
       stages: () => ({ portrait: portrait.current, scene: scene.current }),
     };
@@ -589,10 +714,12 @@ export function CaptureScreen() {
   const camAllowed = !!camPerm?.granted;
   const liveDown = liveStatus === 'unavailable' || micOk === false;
 
-  const caption = said && liveMaySpeak(state) ? said : null;
+  const caption = said && (DEMO || liveMaySpeak(state)) ? said : null;
   const status =
     line ??
-    (state === 'LIVE_IDLE'
+    (DEMO
+      ? null
+      : state === 'LIVE_IDLE'
       ? liveStatus === 'connecting' || liveStatus === 'off'
         ? 'Mamdani is on his way…'
         : liveDown
@@ -621,7 +748,14 @@ export function CaptureScreen() {
             facing="back"
             mode="picture"
             animateShutter={false}
-            onCameraReady={() => (camReady.current = true)}
+            pictureSize={pictureSize}
+            onCameraReady={async () => {
+              camReady.current = true;
+              if (pictureSize) return;
+              const sizes = await cam.current?.getAvailablePictureSizesAsync().catch(() => [] as string[]);
+              const pick = ['1920x1080', 'High', '1280x720', 'Medium'].find((x) => sizes?.includes(x));
+              if (pick) setPictureSize(pick);
+            }}
           />
         ) : (
           <View style={[StyleSheet.absoluteFill, styles.noCamera]}>
@@ -643,10 +777,12 @@ export function CaptureScreen() {
           <Image source={{ uri: snap.photo.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityLabel="The photo you're reporting" />
         )}
 
-        {(state === 'REPORT_PROCESSING' || state === 'CAPTURED' || state === 'REPORT_CLARIFYING') && <Shimmer progress={shimmer} width={W} />}
+        {(state === 'REPORT_PROCESSING' || state === 'CHARACTER_EXITING' || state === 'CAPTURED' || state === 'REPORT_CLARIFYING') && <Shimmer progress={shimmer} width={W} />}
         {box && <Brackets box={box} progress={brackets} width={W} height={viewH} />}
 
         <GLHost create={(s) => new MayorStage(s)} onReady={(s) => (scene.current = s)} />
+        {/* demo: tapping the camera is the backup trigger if the voice one misses */}
+        {DEMO && state === 'LIVE_IDLE' && <Pressable style={StyleSheet.absoluteFill} onPress={() => void runDemo()} accessibilityLabel="Fix this" />}
 
         <Animated.View
           pointerEvents="none"
