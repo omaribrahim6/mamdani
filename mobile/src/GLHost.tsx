@@ -49,14 +49,24 @@ export function GLHost<T extends { resize(): void; dispose(): void }>({
       getContext: () => gl,
     } as unknown as HTMLCanvasElement;
 
-    stage.current = create({
-      canvas,
-      context: gl as unknown as WebGL2RenderingContext,
-      // expo-gl's buffer is in device pixels; three must match it exactly or it draws into a corner
-      pixelRatio: size.current.w > 1 ? gl.drawingBufferWidth / size.current.w : PixelRatio.get(),
-      size: () => size.current,
-      present: () => gl.endFrameEXP(),
-    });
+    // expo-gl's WebGL2 context is also `instanceof WebGLRenderingContext`, which three (r163+)
+    // reads as WebGL 1 and refuses. That check only runs in the renderer's constructor, so hide
+    // the global just while the stage is built.
+    const g = globalThis as { WebGLRenderingContext?: unknown };
+    const webgl1 = g.WebGLRenderingContext;
+    g.WebGLRenderingContext = undefined;
+    try {
+      stage.current = create({
+        canvas,
+        context: gl as unknown as WebGL2RenderingContext,
+        // expo-gl's buffer is in device pixels; three must match it exactly or it draws into a corner
+        pixelRatio: size.current.w > 1 ? gl.drawingBufferWidth / size.current.w : PixelRatio.get(),
+        size: () => size.current,
+        present: () => gl.endFrameEXP(),
+      });
+    } finally {
+      g.WebGLRenderingContext = webgl1;
+    }
     onReady(stage.current);
   };
 
