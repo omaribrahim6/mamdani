@@ -1,7 +1,10 @@
 import { GoogleGenAI } from '@google/genai';
+import { accessToken, project, serviceAccount } from './google';
 
-// Gemini Live is Mamdani's eyes, ears and conversation on the phone. The server mints a short-lived,
-// single-use token locked to this model and persona, so the API key never reaches the app.
+// Gemini Live is Mamdani's eyes, ears and conversation on the phone.
+// On Vertex AI (service account): the phone gets a short-lived OAuth token for the Live socket.
+// On the Gemini API (API key): a single-use ephemeral token locked to this model and persona.
+// Either way no long-lived key reaches the app.
 
 const CITY = process.env.NEXT_PUBLIC_CITY || 'Ottawa';
 
@@ -38,7 +41,19 @@ export function liveConfig() {
   };
 }
 
+const LIVE_LOCATION = () => process.env.GCP_LIVE_LOCATION || 'us-central1';
+
 export async function mintLiveToken() {
+  if (serviceAccount()) {
+    const token = await accessToken();
+    const loc = LIVE_LOCATION();
+    return {
+      token: token!,
+      model: `projects/${project()}/locations/${loc}/publishers/google/models/${LIVE_MODEL()}`,
+      url: `wss://${loc}-aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1.LlmBidiService/BidiGenerateContent`,
+      config: liveConfig(),
+    };
+  }
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
   const ai = new GoogleGenAI({ apiKey, httpOptions: { apiVersion: API_VERSION() } });
