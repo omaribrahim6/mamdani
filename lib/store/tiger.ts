@@ -3,17 +3,14 @@ import { category, type CategoryId } from '../categories';
 import { metersBetween, priorityOf } from '../priority';
 import type { CityStats, Issue, Report, Status } from '../types';
 import { STATUS_LABEL } from '../types';
+import { pgConfig } from './pg-url';
 import type { NewIssue, Store } from './types';
 
 // Tiger Data (TimescaleDB) store. Schema: db/schema.sql. Seed: `npm run db:setup`.
 
 let pool: Pool | null = null;
 const db = () =>
-  (pool ??= new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL?.includes('localhost') ? undefined : { rejectUnauthorized: false },
-    max: 5,
-  }));
+  (pool ??= new Pool({ ...pgConfig(), max: 5 }));
 
 type Row = Record<string, unknown>;
 const ms = (v: unknown) => (v ? new Date(v as string).getTime() : null);
