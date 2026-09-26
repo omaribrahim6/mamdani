@@ -7,13 +7,13 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#26292c",
+    "backgroundColor": "#000000",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "ca.hackthehill.mamdani"
+      "bundleIdentifier": "com.mamdani.reporting"
     },
     "android": {
-      "package": "ca.hackthehill.mamdani",
+      "package": "com.mamdani.reporting",
       "adaptiveIcon": {
         "backgroundColor": "#26292c",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -27,20 +27,22 @@
     },
     "plugins": [
       "expo-font",
+      "expo-asset",
+      "expo-system-ui",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#26292c",
+          "backgroundColor": "#000000",
           "image": "./assets/splash-icon.png",
           "imageWidth": 160
         }
       ],
+      "expo-build-properties",
       [
         "expo-camera",
         {
           "cameraPermission": "Mamdani looks at the problem you point your camera at.",
-          "microphonePermission": "Talk to Mamdani about what you're showing him.",
-          "recordAudioAndroid": true
+          "recordAudioAndroid": false
         }
       ],
       [
@@ -49,11 +51,15 @@
           "locationWhenInUsePermission": "Your report needs the spot where the problem is, so the crew can find it."
         }
       ],
-      "expo-asset",
       [
-        "expo-audio",
+        "react-native-audio-api",
         {
-          "microphonePermission": "Talk to Mamdani about what you're showing him."
+          "iosMicrophonePermission": "Talk to Mamdani about the problem you’re showing him.",
+          "iosBackgroundMode": false,
+          "androidPermissions": [
+            "android.permission.RECORD_AUDIO"
+          ],
+          "androidForegroundService": false
         }
       ]
     ]
