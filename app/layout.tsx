@@ -29,7 +29,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${stencil.variable} ${ui.variable}`}>
-      <body>{children}</body>
+      <body className="concrete">{children}</body>
     </html>
   );
 }

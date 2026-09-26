@@ -119,6 +119,7 @@ img {
   border-radius: var(--r-sm);
   border: 2px solid var(--asphalt);
   background: var(--paper);
+  color: var(--asphalt);
   font-weight: 700;
   font-size: var(--t-md);
   text-decoration: none;

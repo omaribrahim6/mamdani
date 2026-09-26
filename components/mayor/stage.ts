@@ -13,6 +13,7 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export interface PerformOpts {
   target: { x: number; y: number }; // 0..1 in the canvas
   mood: Mood;
+  size?: number; // fraction of the frame height he should occupy
   onThunk?: () => void;
 }
 
@@ -103,9 +104,15 @@ export class MayorStage {
     this.scene.add(rig.root);
 
     const flagSpot = this.groundAt(o.target.x, o.target.y);
+    // Hold his on-screen size steady (~a quarter of the frame) whether the problem is at your feet
+    // or down the block — a giant mayor hides the very thing he's pointing at.
+    const dist = this.camera.position.distanceTo(flagSpot);
+    const frameH = 2 * dist * Math.tan((this.camera.fov * Math.PI) / 360);
+    const k = (frameH * (o.size ?? 0.26)) / 1.18;
+    rig.root.scale.setScalar(k);
     // stand beside the problem (camera-left of it), a touch in front
-    const stand = flagSpot.clone().add(new THREE.Vector3(-0.42, 0, 0.18));
-    const start = new THREE.Vector3(-4.2, 0, stand.z + 0.4);
+    const stand = flagSpot.clone().add(new THREE.Vector3(-0.42 * k, 0, 0.18 * k));
+    const start = new THREE.Vector3(-4.2 - k, 0, stand.z + 0.4 * k);
     rig.root.position.copy(start);
     rig.root.rotation.y = Math.PI / 2; // facing right, walking in
     // carry the flag over the shoulder
@@ -142,10 +149,9 @@ export class MayorStage {
       rig.body.rotation.x = lerp(0.22, 0.35, t);
     });
     // detach the flag into the world, standing in the ground at the problem
-    const world = new THREE.Vector3();
-    rig.flag.getWorldPosition(world);
     rig.handR.remove(rig.flag);
-    rig.flag.position.copy(flagSpot).setY(-0.05);
+    rig.flag.scale.setScalar(k);
+    rig.flag.position.copy(flagSpot).setY(-0.05 * k);
     rig.flag.rotation.set(0.12, rig.root.rotation.y + Math.PI / 2, -0.1);
     this.scene.add(rig.flag);
     this.plantedFlag = rig.flag;
@@ -171,6 +177,16 @@ export class MayorStage {
       rig.forearmL.rotation.z = lerp(0, -0.6, ease(t));
     });
     this.idle = 1;
+  }
+
+  /** Where his head is on screen (0..1), for placing the speech bubble. */
+  headScreen() {
+    if (!this.rig) return null;
+    const v = new THREE.Vector3();
+    this.rig.head.getWorldPosition(v);
+    v.y += 0.62 * this.rig.root.scale.y;
+    v.project(this.camera);
+    return { x: (v.x + 1) / 2, y: (1 - v.y) / 2 };
   }
 
   /** mouth + brows while the voice plays */

@@ -9,6 +9,7 @@ export interface MayorHandle {
   speaking(on: boolean): void;
   listen(a: AnalyserNode | null): void;
   clear(): void;
+  headScreen(): { x: number; y: number } | null;
 }
 
 /** Full-size transparent canvas; put it over the photo. */
@@ -34,6 +35,7 @@ export const Mayor = forwardRef<MayorHandle, { className?: string }>(function Ma
     speaking: (on) => stage.current?.speaking(on),
     listen: (a) => stage.current?.listen(a),
     clear: () => stage.current?.clear(),
+    headScreen: () => stage.current?.headScreen() ?? null,
   }));
 
   return <canvas ref={canvas} className={className} aria-hidden="true" style={{ width: '100%', height: '100%', display: 'block' }} />;
