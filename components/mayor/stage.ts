@@ -17,6 +17,8 @@ export interface PerformOpts {
   action?: CharacterAnimation;
   prop?: CharacterProp;
   size?: number; // fraction of the frame height he should occupy
+  /** he's reached the problem and is about to act */
+  onArrive?: () => void;
   onThunk?: () => void;
 }
 
@@ -135,6 +137,7 @@ export class MayorStage extends RigStage {
       rig.head.rotation.x = lerp(0, lookDown, ease(t));
       rig.body.rotation.x = lerp(0, action === 'LOOK_UP' ? -0.08 : 0.22, ease(t));
     });
+    o.onArrive?.();
     await this.react(o.mood, action);
 
     switch (action) {

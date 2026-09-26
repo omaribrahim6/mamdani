@@ -87,7 +87,11 @@ export class RigStage {
   }
 
   /** Subclasses call this once their scene is set up. */
+  private baseChildren = 0;
+  private drewEmpty = false;
+
   protected start() {
+    this.baseChildren = this.scene.children.length;
     this.resize();
     this.loop();
   }
@@ -163,6 +167,11 @@ export class RigStage {
 
   private frame(dt: number, now: number) {
     this.tasks = this.tasks.filter((f) => !f(dt));
+    // nothing on stage and nothing moving: the last (empty) frame is still showing
+    if (!this.rig && !this.tasks.length && this.scene.children.length === this.baseChildren) {
+      if (this.drewEmpty) return;
+      this.drewEmpty = true;
+    } else this.drewEmpty = false;
     const rig = this.rig;
     if (rig) {
       if (this.walking) {
