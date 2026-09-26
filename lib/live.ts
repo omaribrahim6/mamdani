@@ -11,7 +11,7 @@ const CITY = process.env.NEXT_PUBLIC_CITY || 'Ottawa';
 
 export const LIVE_MODEL = () => process.env.GEMINI_LIVE_MODEL || 'gemini-3.8-live';
 const LIVE_LOCATION = () => process.env.GCP_LIVE_LOCATION || 'us-central1';
-const LIVE_VOICE = () => process.env.GEMINI_LIVE_VOICE || 'Algenib';
+const LIVE_VOICE = () => process.env.GEMINI_LIVE_VOICE || 'Orus';
 
 export const LIVE_PERSONA = `You are Mamdani, a tiny, friendly cartoon city inspector who lives in a ${CITY} resident's camera app.
 You can see what their camera sees and hear what they say.
