@@ -1,0 +1,29 @@
+[project]
+name = "municipal-backend"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.34,<1",
+  "httpx>=0.28,<1",
+  "Pillow>=12,<13",
+  "google-cloud-storage>=3,<4",
+  "pydantic-settings>=2.7,<3",
+  "google-genai>=1.0,<3",
+  "psycopg[binary,pool]>=3.2,<4",
+  "PyJWT[crypto]>=2.10,<3",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "httpx>=0.28,<1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["app"]

@@ -1,0 +1,42 @@
+{
+  "name": "mamdani-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "postinstall": "patch-package --error-on-fail",
+    "check:env": "tsx scripts/check-env.ts",
+    "prestart": "npm run check:env",
+    "preios": "npm run check:env",
+    "preandroid": "npm run check:env",
+    "start": "expo start --dev-client",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/*.test.ts"
+  },
+  "dependencies": {
+    "@types/react": "~19.2.4",
+    "base64-js": "^1.5.1",
+    "expo": "~57.0.25",
+    "expo-build-properties": "~57.0.22",
+    "expo-camera": "~57.0.5",
+    "expo-dev-client": "~57.0.19",
+    "expo-file-system": "~57.0.7",
+    "expo-image-manipulator": "~57.0.20",
+    "expo-location": "~57.0.20",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-audio-api": "0.13.6",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-worklets": "0.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "patch-package": "^8.0.1",
+    "tsx": "^4.23.0",
+    "typescript": "~6.0.3"
+  }
+}

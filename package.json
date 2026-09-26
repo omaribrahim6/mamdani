@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "db:setup": "tsx scripts/db-setup.ts"
+    "db:setup": "tsx scripts/db-setup.ts",
+    "dev:mobile": "python3 scripts/dev-mobile.py"
   },
   "dependencies": {
     "@google/genai": "^2.24.0",
