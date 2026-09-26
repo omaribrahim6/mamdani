@@ -43,7 +43,7 @@ const MOOD: Record<CharacterDecision['emotion'], Mood> = {
   CONFUSED: 'confused',
   CHEERFUL: 'impressed',
 };
-const PROCESSING_LINES = ['Looking at it…', 'Understanding the issue…', 'Checking nearby reports…'];
+const PROCESSING_LINES = ['Mamdani’s getting ready…', 'Looking over your photo…', 'Checking nearby reports…'];
 const WINDOW = 124; // Mamdani's round window
 const ACCENT = C.hardhat;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -91,8 +91,9 @@ export function CaptureScreen() {
   const scene = useRef<MayorStage | null>(null);
 
   // Gemini Live (his mind) and the phone's audio (his ears and voice)
-  const live = useRef(new LiveClient()).current;
-  const audio = useRef(new LiveAudio()).current;
+  // created once (useRef(new X()) would build, and throw away, a new one every render)
+  const [live] = useState(() => new LiveClient());
+  const [audio] = useState(() => new LiveAudio());
   const [liveStatus, setLiveStatus] = useState(live.status);
   const [micOk, setMicOk] = useState<boolean | null>(null);
   const [speaking, setSpeaking] = useState(false);
@@ -232,6 +233,8 @@ export function CaptureScreen() {
         console.warn('mic failed', e);
         setMicOk(false);
       });
+      // Lyria-made "on his way" music for the wait while he gets ready
+      void audio.loadMusic(require('../assets/audio/wait-loop.wav'));
     })();
     return () => {
       alive = false;
@@ -339,8 +342,58 @@ export function CaptureScreen() {
     }
   };
 
+  // ── analysis: starts the moment the snapshot is frozen, while he's already walking out ──
+  const runRef = useRef(0);
+  useEffect(() => {
+    if (state !== 'CAPTURED' || !f.snapshot) return;
+    const run = f.run;
+    runRef.current = run;
+    const snap = f.snapshot;
+    const answerText = f.answer;
+    (async () => {
+      try {
+        if (devDecision.current) {
+          await wait(3200);
+          if (runRef.current === run) dispatch({ type: 'DECIDED', decision: devDecision.current });
+          return;
+        }
+        const res = await submitReport({ ...snap, answer: answerText, final: !!answerText });
+        if (runRef.current !== run) return;
+        if (res.status === 'clarify') dispatch({ type: 'CLARIFY', question: res.question, options: res.options });
+        else if (res.status === 'rejected') dispatch({ type: 'FAILED', message: res.message });
+        else {
+          details.current = { hazards: res.analysis.hazards, notes: res.analysis.accessibility.notes };
+          void saveMine({
+            issueId: res.decision.issue.id,
+            title: res.decision.issue.title,
+            category: res.decision.issue.type,
+            address: res.decision.issue.address,
+            at: Date.now(),
+            duplicate: res.decision.issue.duplicate,
+            photoUri: snap.photo.uri,
+          });
+          setLastPhoto(snap.photo.uri);
+          dispatch({ type: 'DECIDED', decision: res.decision });
+        }
+      } catch (e) {
+        if (runRef.current === run) dispatch({ type: 'FAILED', message: e instanceof Error ? e.message : 'I couldn’t file that one. Try again.' });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, f.run]);
+
+  /** The window pops open again and he walks back into it. */
+  const backToWindow = async () => {
+    win.sx.setValue(0);
+    win.sy.setValue(0);
+    Animated.parallel([
+      Animated.spring(win.sx, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 10 }),
+      Animated.spring(win.sy, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 10 }),
+    ]).start();
+    await portrait.current?.enterFromLeft('suit');
+  };
+
   // ── the orchestrator: side effects per state ──
-  const attempt = useRef(0);
   useEffect(() => {
     let alive = true;
     const p = portrait.current;
@@ -383,89 +436,15 @@ export function CaptureScreen() {
         };
       }
 
-      case 'CAPTURED':
+      case 'CAPTURED': {
+        // photo's in: he heads out straight away (the analysis effect above is already running)
         brackets.setValue(0);
-        dispatch({ type: 'PROCESSING' });
-        break;
-
-      case 'REPORT_PROCESSING': {
-        p?.act('think');
-        const n = ++attempt.current;
-        setLine(PROCESSING_LINES[0]);
-        const timers = [setTimeout(() => setLine(PROCESSING_LINES[1]), 1300), setTimeout(() => setLine(PROCESSING_LINES[2]), 2800)];
-        shimmer.setValue(0);
-        const sweep = Animated.loop(Animated.timing(shimmer, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }));
-        sweep.start();
-        (async () => {
-          if (!snap) return;
-          try {
-            if (devDecision.current) {
-              await wait(3200);
-              if (alive && n === attempt.current) dispatch({ type: 'DECIDED', decision: devDecision.current });
-              return;
-            }
-            const res = await submitReport({ ...snap, answer: f.answer, final: !!f.answer });
-            if (!alive || n !== attempt.current) return;
-            if (res.status === 'clarify') {
-              if (!answer({ status: 'needs_clarification', question: res.question, options: res.options })) tell(res.question);
-              dispatch({ type: 'CLARIFY', question: res.question, options: res.options });
-            } else if (res.status === 'rejected') {
-              if (!answer({ status: 'rejected', reason: res.message })) tell(res.message);
-              dispatch({ type: 'FAILED', message: res.message });
-            } else {
-              details.current = { hazards: res.analysis.hazards, notes: res.analysis.accessibility.notes };
-              void saveMine({
-                issueId: res.decision.issue.id,
-                title: res.decision.issue.title,
-                category: res.decision.issue.type,
-                address: res.decision.issue.address,
-                at: Date.now(),
-                duplicate: res.decision.issue.duplicate,
-                photoUri: snap.photo.uri,
-              });
-              setLastPhoto(snap.photo.uri);
-              dispatch({ type: 'DECIDED', decision: res.decision });
-            }
-          } catch (e) {
-            if (!alive) return;
-            const message = e instanceof Error ? e.message : 'I couldn’t file that one. Try again.';
-            if (!answer({ status: 'error' })) tell(message);
-            dispatch({ type: 'FAILED', message });
-          }
-        })();
-        return () => {
-          alive = false;
-          timers.forEach(clearTimeout);
-          sweep.stop();
-        };
-      }
-
-      case 'REPORT_CLARIFYING':
-        setLine(f.clarify?.question ?? null);
-        p?.act('listen');
-        break;
-
-      case 'REPORT_READY': {
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setLine('Got it.');
-        setSaid('');
-        brackets.setValue(0);
-        Animated.timing(brackets, { toValue: 1, duration: 650, easing: Easing.bezier(0.2, 0.8, 0.2, 1), useNativeDriver: false }).start();
-        (async () => {
-          p?.look('you');
-          await wait(450);
-          // he changes into what the job needs, in his window, before heading out
-          await p?.suitUp(OUTFIT[d!.character.outfit]);
-          await wait(250);
-          if (alive) dispatch({ type: 'EXIT' });
-        })();
-        return () => {
-          alive = false;
-        };
+        const t = setTimeout(() => dispatch({ type: 'EXIT' }), 350);
+        return () => clearTimeout(t);
       }
 
       case 'CHARACTER_EXITING': {
-        setLine(null);
         (async () => {
           await p?.exitLeft();
           // the empty window closes: ◯ → () → | → gone
@@ -480,15 +459,59 @@ export function CaptureScreen() {
               Animated.timing(win.sy, { toValue: 0, duration: 90, easing: Easing.in(Easing.quad), useNativeDriver: true }),
             ]).start(() => done()),
           );
-          await wait(180);
-          if (alive) dispatch({ type: 'ENTER' });
+          await wait(150);
+          if (alive) dispatch({ type: 'EXITED' });
         })();
         return () => {
           alive = false;
         };
       }
 
+      case 'REPORT_PROCESSING': {
+        // he's off getting ready: the waiting music, and the photo being looked over
+        audio.startMusic();
+        setLine(PROCESSING_LINES[0]);
+        const timers = [setTimeout(() => setLine(PROCESSING_LINES[1]), 1600), setTimeout(() => setLine(PROCESSING_LINES[2]), 3400)];
+        shimmer.setValue(0);
+        const sweep = Animated.loop(Animated.timing(shimmer, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.quad), useNativeDriver: true }));
+        sweep.start();
+        return () => {
+          timers.forEach(clearTimeout);
+          sweep.stop();
+        };
+      }
+
+      case 'CHARACTER_RECALLED': {
+        // Gemini needs to ask something, or turned the photo down: he comes back to his window to say so
+        audio.stopMusic(0.5);
+        setLine(null);
+        const outcome = f.outcome;
+        (async () => {
+          await backToWindow();
+          if (!alive || !outcome) return;
+          dispatch({ type: 'RECALLED' });
+          if (outcome.kind === 'clarify') {
+            if (!answer({ status: 'needs_clarification', question: outcome.question, options: outcome.options })) tell(outcome.question);
+          } else if (!answer({ status: 'rejected', reason: outcome.message })) tell(outcome.message);
+        })();
+        return () => {
+          alive = false;
+        };
+      }
+
+      case 'REPORT_CLARIFYING':
+        setLine(f.clarify?.question ?? null);
+        p?.act('listen');
+        break;
+
       case 'CHARACTER_ENTERING': {
+        // the decision is in: the music fades as he steps into the photo, dressed for the job
+        audio.stopMusic(0.9);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setLine(null);
+        setSaid('');
+        brackets.setValue(0);
+        Animated.timing(brackets, { toValue: 1, duration: 650, easing: Easing.bezier(0.2, 0.8, 0.2, 1), useNativeDriver: false }).start();
         const c = d!.character;
         void scene.current
           ?.perform(OUTFIT[c.outfit], {
@@ -556,14 +579,7 @@ export function CaptureScreen() {
           await scene.current?.exitLeft();
           scene.current?.clear();
           brackets.setValue(0);
-          // his window pops back open and he walks back into it
-          win.sx.setValue(0);
-          win.sy.setValue(0);
-          Animated.parallel([
-            Animated.spring(win.sx, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 10 }),
-            Animated.spring(win.sy, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 10 }),
-          ]).start();
-          await portrait.current?.enterFromLeft('suit');
+          await backToWindow();
           if (!alive) return;
           dispatch({ type: 'RETURNED' });
           visual.current = '';
@@ -663,7 +679,7 @@ export function CaptureScreen() {
           <Image source={{ uri: snap.photo.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityLabel="The photo you're reporting" />
         )}
 
-        {(state === 'REPORT_PROCESSING' || state === 'CAPTURED' || state === 'REPORT_CLARIFYING') && <Shimmer progress={shimmer} width={W} />}
+        {(state === 'REPORT_PROCESSING' || state === 'CHARACTER_EXITING' || state === 'CAPTURED' || state === 'REPORT_CLARIFYING') && <Shimmer progress={shimmer} width={W} />}
         {box && <Brackets box={box} progress={brackets} width={W} height={viewH} />}
 
         <GLHost create={(s) => new MayorStage(s)} onReady={(s) => (scene.current = s)} />
