@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { buildMayor, type MayorOutfit } from './build';
+import type { MayorOutfit } from './build';
 import { ease, lerp, RigStage, type StageSurface } from './engine';
+import { createMayor } from './models';
 
 // Mamdani in his little round window: head and shoulders, alive while the camera is up.
 // He watches the feed, glances at the shutter when you touch it, thinks while the report is
@@ -30,15 +31,15 @@ export class PortraitStage extends RigStage {
 
   constructor(target: HTMLCanvasElement | StageSurface) {
     super(target, { fov: 26, shadows: false });
-    this.camera.position.set(0, 0.84, 1.7);
-    this.camera.lookAt(0, 0.8, 0);
+    this.camera.position.set(0, 0.9, 1.95);
+    this.camera.lookAt(0, 0.86, 0);
     this.start();
   }
 
   /** Put him in the window, standing, looking at the feed. */
   show(outfit: MayorOutfit = 'suit') {
     this.outfit = outfit;
-    const rig = buildMayor(outfit);
+    const rig = createMayor(outfit);
     rig.flag.removeFromParent();
     this.setRig(rig);
     rig.root.position.set(0, 0, 0);

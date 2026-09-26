@@ -31,6 +31,7 @@ function addLids(rig: MayorRig) {
     lid.position.set(side * 0.082, 0.236, 0.176);
     lid.rotation.set(0, side * 0.17, side * 0.065);
     lid.scale.set(0.05, 0.028, 0.016);
+    lid.userData.sy = 0.028;
     lid.visible = false;
     rig.head.add(lid);
     lids.push(lid);
@@ -108,7 +109,7 @@ export class RigStage {
   protected setRig(rig: MayorRig | null) {
     if (this.rig) this.scene.remove(this.rig.root);
     this.rig = rig;
-    this.lids = rig ? addLids(rig) : [];
+    this.lids = rig ? (rig.makeLids?.() ?? addLids(rig)) : [];
     if (rig) this.scene.add(rig.root);
   }
 
@@ -198,8 +199,16 @@ export class RigStage {
         } else open = (Math.sin(now / 70) * 0.5 + 0.5) * (Math.sin(now / 230) > -0.3 ? 1 : 0.1);
       }
       this.mouthOpen += (open - this.mouthOpen) * Math.min(1, dt * 22);
-      rig.mouth.scale.y = 1 + this.mouthOpen * 4.5;
-      rig.head.position.y = 0.6 + this.mouthOpen * 0.006;
+      if (rig.mouthOverlay) {
+        // a dark opening that appears over the beard while he talks
+        const base = rig.mouth.userData.base as THREE.Vector3;
+        rig.mouth.visible = this.mouthOpen > 0.04;
+        rig.mouth.scale.set(base.x, base.y * (0.3 + this.mouthOpen * 1.6), base.z * (0.8 + this.mouthOpen * 0.3));
+      } else {
+        rig.mouth.scale.y = 1 + this.mouthOpen * 4.5;
+        rig.head.position.y = 0.6 + this.mouthOpen * 0.006;
+      }
+      rig.update?.();
     }
     this.renderer.render(this.scene, this.camera);
     this.surface.present?.();
@@ -221,7 +230,7 @@ export class RigStage {
     }
     for (const lid of this.lids) {
       lid.visible = closed > 0.05;
-      lid.scale.y = 0.004 + closed * 0.026;
+      lid.scale.y = lid.userData.sy * (0.15 + closed * 0.85);
     }
   }
 

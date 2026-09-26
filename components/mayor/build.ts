@@ -29,6 +29,21 @@ export interface MayorRig {
   legR: THREE.Group;
   handR: THREE.Group;
   flag: THREE.Group;
+  // ── optional: set by rigs that aren't built from primitives (components/mayor/tripo.ts) ──
+  /** left-hand prop mount */
+  handL?: THREE.Object3D;
+  /** the flag is part of the model and already sits in his hand */
+  flagBuiltIn?: boolean;
+  /** right-arm control angles that hold that built-in flag the way it was generated */
+  flagCarry?: { arm: THREE.Euler; forearm: THREE.Euler };
+  /** the mouth is a separate opening shown only while talking (instead of a stretching smile) */
+  mouthOverlay?: boolean;
+  /** what to measure for his head's on-screen position when `head` isn't in the scene */
+  headAnchor?: THREE.Object3D;
+  /** builds eyelids for blinking; defaults to the procedural head's lids */
+  makeLids?: () => THREE.Mesh[];
+  /** carry the joint controls onto the real skeleton; called every frame before rendering */
+  update?: () => void;
 }
 
 const group = (name: string, parent?: THREE.Object3D) => {
@@ -128,7 +143,7 @@ function addArm(body: THREE.Group, side: number) {
   return { arm, fore, hand };
 }
 
-function makeFlag() {
+export function makeFlag() {
   const flag = group('flag');
   const pole = mesh(new THREE.CylinderGeometry(0.010, 0.012, 0.88, 7), C.pole, 0.03);
   pole.position.y = 0.44;

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type { CharacterAnimation, CharacterProp, Mood } from '@/lib/types';
-import { buildMayor, type MayorOutfit } from './build';
+import type { MayorOutfit } from './build';
 import { ease, lerp, RigStage, type StageSurface } from './engine';
+import { createMayor } from './models';
 import { makeClipboard, makeCone, makeFlashlight } from './props';
 
 export type { StageSurface } from './engine';
@@ -66,7 +67,7 @@ export class MayorStage extends RigStage {
   /** Walk in from the left edge → inspect → react → act → face you. Resolves when he's ready to talk. */
   async perform(outfit: MayorOutfit, o: PerformOpts) {
     this.clear();
-    const rig = buildMayor(outfit);
+    const rig = createMayor(outfit);
     this.setRig(rig);
     const action = o.action ?? 'PLACE_FLAG';
     const prop = o.prop && o.prop !== 'NONE' ? o.prop : PROP_FOR[action];
@@ -89,9 +90,15 @@ export class MayorStage extends RigStage {
 
     // what's in his hands on the way in
     rig.flag.removeFromParent();
-    const handL = rig.forearmL.getObjectByName('hand-left') ?? rig.forearmL;
+    const handL = rig.handL ?? rig.forearmL.getObjectByName('hand-left') ?? rig.forearmL;
     let held: THREE.Object3D | null = null;
-    if (prop === 'WARNING_FLAG') {
+    if (prop === 'WARNING_FLAG' && rig.flagBuiltIn) {
+      // the generated model already holds it upright at his side, like the reference
+      held = rig.flag;
+      (rig.flag.userData.mount as THREE.Object3D).add(held);
+      rig.armR.rotation.copy(rig.flagCarry!.arm);
+      rig.forearmR.rotation.copy(rig.flagCarry!.forearm);
+    } else if (prop === 'WARNING_FLAG') {
       held = rig.flag;
       rig.handR.add(held);
       // carried over the shoulder
@@ -113,7 +120,7 @@ export class MayorStage extends RigStage {
         held.position.set(0, -0.02, 0.03);
         held.rotation.set(Math.PI / 2, 0, 0);
         rig.handR.add(held);
-      } else if (prop === 'CLIPBOARD' && outfit !== 'inspector') {
+      } else if (prop === 'CLIPBOARD' && (outfit !== 'inspector' || rig.handL)) {
         held = makeClipboard();
         held.position.set(0.006, -0.02, 0.049);
         held.rotation.x = -0.25;
@@ -142,7 +149,7 @@ export class MayorStage extends RigStage {
 
     switch (action) {
       case 'PLACE_FLAG':
-        await this.plantFlag(k, spot, o.onThunk);
+        await (rig.flagBuiltIn ? this.plantHeldFlag(k, spot, o.onThunk) : this.plantFlag(k, spot, o.onThunk));
         break;
       case 'PLACE_CONE':
         await this.placeCone(held, k, spot, o.onThunk);
@@ -209,7 +216,7 @@ export class MayorStage extends RigStage {
   headScreen() {
     if (!this.rig) return null;
     const v = new THREE.Vector3();
-    this.rig.head.getWorldPosition(v);
+    (this.rig.headAnchor ?? this.rig.head).getWorldPosition(v);
     v.y += 0.62 * this.rig.root.scale.y;
     v.project(this.camera);
     return { x: (v.x + 1) / 2, y: (1 - v.y) / 2 };
@@ -243,6 +250,46 @@ export class MayorStage extends RigStage {
     });
   }
 
+  /** The generated flag: lift it from his side, drive it into the ground at the problem. */
+  private async plantHeldFlag(k: number, spot: THREE.Vector3, onThunk?: () => void) {
+    const rig = this.rig!;
+    const flag = rig.flag;
+    const carry = rig.flagCarry!;
+    // raise it up over the spot, still gripped as generated…
+    await this.tween(0.35, (t) => {
+      const e = ease(t);
+      rig.armR.rotation.set(carry.arm.x - 0.55 * e, carry.arm.y, carry.arm.z);
+      rig.forearmR.rotation.copy(carry.forearm);
+      rig.body.position.y = lerp(0, 0.03, e);
+    });
+    // …THUNK
+    await this.tween(0.12, (t) => {
+      rig.armR.rotation.x = carry.arm.x - 0.55 + 0.75 * t * t;
+      rig.body.rotation.x = lerp(0.22, 0.34, t);
+    });
+    // let go: the flag stays in the world, upright in the ground at the problem
+    this.scene.attach(flag);
+    const from = flag.position.clone();
+    const fromQ = flag.quaternion.clone();
+    const upright = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.08, rig.root.rotation.y - Math.PI / 2, -0.06));
+    const to = spot.clone().setY(-0.03 * k);
+    flag.scale.setScalar(k * (flag.userData.scale ?? 1));
+    this.planted = flag;
+    this.puff(spot, 1);
+    onThunk?.();
+    await this.tween(0.16, (t) => {
+      flag.position.lerpVectors(from, to, ease(t));
+      flag.quaternion.slerpQuaternions(fromQ, upright, ease(t));
+      const s = 1 - Math.sin(t * Math.PI) * 0.08;
+      rig.body.scale.set(2 - s, s, 2 - s);
+    });
+    // a little wobble as it settles
+    await this.tween(0.3, (t) => {
+      flag.quaternion.copy(upright).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.sin(t * Math.PI * 3) * 0.06 * (1 - t))));
+      rig.armR.rotation.x = lerp(carry.arm.x + 0.2, carry.arm.x, ease(t));
+    });
+  }
+
   private async placeCone(cone: THREE.Object3D | null, k: number, spot: THREE.Vector3, onThunk?: () => void) {
     const rig = this.rig!;
     // bend and set it down in front of the problem
@@ -273,7 +320,7 @@ export class MayorStage extends RigStage {
 
   private async checkClipboard(onThunk?: () => void) {
     const rig = this.rig!;
-    const board = rig.forearmL.getObjectByName('clipboard');
+    const board = (rig.handL ?? rig.forearmL).getObjectByName('clipboard');
     // raise the board, glance between it and the problem, write, tick
     await this.tween(0.35, (t) => {
       const e = ease(t);
