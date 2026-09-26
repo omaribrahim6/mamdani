@@ -52,8 +52,8 @@ export class MayorStage {
     this.surface = 'canvas' in target ? target : { canvas: target };
     const { canvas, context } = this.surface;
     this.renderer = new THREE.WebGLRenderer({ canvas, context, alpha: true, antialias: true, powerPreference: 'high-performance' });
-    const dpr = this.surface.pixelRatio ?? (typeof devicePixelRatio === 'number' ? devicePixelRatio : 1);
-    this.renderer.setPixelRatio(Math.min(dpr, 2));
+    // an injected surface knows its exact buffer scale; a browser canvas is capped at 2x
+    this.renderer.setPixelRatio(this.surface.pixelRatio ?? Math.min(typeof devicePixelRatio === 'number' ? devicePixelRatio : 1, 2));
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
