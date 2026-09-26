@@ -43,6 +43,10 @@ export class LiveClient {
   private turnAudio: Uint8Array[] = [];
   private heard = '';
   private log: TranscriptLine[] = [];
+  /** why the last socket closed — sent with the next token request so it shows in the server logs */
+  private lastClose: { code: number; reason: string; afterSetup: boolean; error?: string } | null = null;
+  private setupDone = false;
+  private failures = 0;
 
   async start() {
     this.disposed = false;
@@ -50,7 +54,11 @@ export class LiveClient {
     this.set('connecting');
     try {
       if (!this.info) {
-        const r = await fetch(`${API}/api/live`, { method: 'POST' });
+        const r = await fetch(`${API}/api/live`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ previous: this.lastClose }),
+        });
         if (r.status === 503) return this.set('unavailable');
         if (!r.ok) throw new Error(`token ${r.status}`);
         this.info = (await r.json()) as TokenInfo;
@@ -65,6 +73,8 @@ export class LiveClient {
     const ws = new WebSocket(`${info.url}?access_token=${encodeURIComponent(info.token)}`);
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
+    this.setupDone = false;
+    let error: string | undefined;
     ws.onopen = () => {
       ws.send(
         JSON.stringify({
@@ -88,16 +98,26 @@ export class LiveClient {
         /* ignore malformed frames */
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
       if (this.ws !== ws) return;
       this.ws = null;
+      this.lastClose = { code: ev.code, reason: String(ev.reason ?? '').slice(0, 300), afterSetup: this.setupDone, error };
+      console.warn('Mamdani live closed', this.lastClose);
       if (!this.disposed) this.scheduleReconnect();
     };
-    ws.onerror = () => ws.close();
+    ws.onerror = (ev) => {
+      error = String((ev as unknown as { message?: string }).message ?? 'socket error').slice(0, 300);
+      ws.close();
+    };
   }
 
   private scheduleReconnect() {
     if (this.disposed) return;
+    // a socket that never got through setup is a failure; give up after a few instead of looping
+    if (!this.setupDone && ++this.failures >= 5) {
+      this.info = null;
+      return this.set('unavailable');
+    }
     this.set('connecting');
     this.retry++;
     // a token is single-use for new sessions; resuming with a handle doesn't spend it
@@ -112,6 +132,8 @@ export class LiveClient {
   private handle(m: Record<string, any>) {
     if (m.setupComplete) {
       this.retry = 0;
+      this.failures = 0;
+      this.setupDone = true;
       this.set('live');
       return;
     }
