@@ -183,6 +183,24 @@ export const tigerStore: Store = {
     await db().query(`delete from report_sessions where session_id = $1 and response is null`, [id]);
   },
 
+  async similar(embedding, limit) {
+    const { rows } = await db().query(
+      `select *, 1 - (embedding <=> $1::vector) as similarity from issues where embedding is not null
+       order by embedding <=> $1::vector limit $2`,
+      [`[${embedding.join(',')}]`, limit],
+    );
+    return rows.map((r) => ({ similarity: Number(r.similarity), issue: toIssue(r) }));
+  },
+
+  async activity(since) {
+    const { rows } = await db().query(
+      `select extract(epoch from created_at) * 1000 as t, issue_id, category, lat, lng from reports
+       where created_at > to_timestamp($1 / 1000.0) order by created_at`,
+      [since],
+    );
+    return rows.map((r) => ({ t: Number(r.t), issueId: Number(r.issue_id), category: category(r.category as string).id, lat: r.lat as number, lng: r.lng as number }));
+  },
+
   async stats(): Promise<CityStats> {
     const [hourly, cats, fixed, open] = await Promise.all([
       db().query(

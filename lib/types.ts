@@ -124,6 +124,15 @@ export interface SubmitResult {
   duplicate: boolean;
 }
 
+/** One resident report on the activity timeline (dashboard charts and the map replay). */
+export interface ActivityPoint {
+  t: number;
+  issueId: number;
+  category: CategoryId;
+  lat: number;
+  lng: number;
+}
+
 export interface CityStats {
   hourly: Array<{ t: number; count: number }>;
   byCategory: Array<{ category: CategoryId; open: number }>;

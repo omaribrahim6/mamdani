@@ -44,11 +44,18 @@ export const EMBED_DIMS = 768;
 
 /** Photo (and optional words) → a unit vector. Same problem from another angle lands close by. */
 export async function embedImage(photo: { data: Buffer; mime: string }, text?: string): Promise<number[] | null> {
+  const parts: Array<Record<string, unknown>> = [{ inlineData: { mimeType: photo.mime, data: photo.data.toString('base64') } }];
+  if (text) parts.push({ text });
+  return embed(parts);
+}
+
+/** Words → a vector in the same space as the photos, so staff can search evidence by description. */
+export const embedText = (text: string) => embed([{ text }]);
+
+async function embed(parts: Array<Record<string, unknown>>): Promise<number[] | null> {
   if (!serviceAccount()) return null;
   const token = await accessToken();
   const url = `https://aiplatform.googleapis.com/v1/projects/${project()}/locations/global/publishers/google/models/${MODELS.embed()}:embedContent`;
-  const parts: Array<Record<string, unknown>> = [{ inlineData: { mimeType: photo.mime, data: photo.data.toString('base64') } }];
-  if (text) parts.push({ text });
   const r = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

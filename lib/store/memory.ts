@@ -189,6 +189,22 @@ export const memoryStore: Store = {
     state().sessions.delete(id);
   },
 
+  async similar(embedding, limit) {
+    const st = state();
+    return [...st.embeddings.entries()]
+      .map(([id, e]) => ({ issue: reprioritize(st.issues.get(id)!), similarity: e.reduce((s, x, k) => s + x * embedding[k], 0) }))
+      .filter((m) => m.issue)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit);
+  },
+
+  async activity(since) {
+    return state()
+      .reports.filter((r) => r.createdAt > since)
+      .map((r) => ({ t: r.createdAt, issueId: r.issueId, category: r.analysis.category, lat: r.lat, lng: r.lng }))
+      .sort((a, b) => a.t - b.t);
+  },
+
   async stats(): Promise<CityStats> {
     const now = Date.now();
     const st = state();

@@ -1,5 +1,5 @@
 import type { CategoryId } from '../categories';
-import type { CityStats, Issue, Report, ReportResponse, Status } from '../types';
+import type { ActivityPoint, CityStats, Issue, Report, ReportResponse, Status } from '../types';
 
 export interface NewIssue extends Omit<Issue, 'id' | 'priority' | 'priorityParts' | 'events' | 'updatedAt'> {}
 
@@ -22,6 +22,10 @@ export interface Store {
   putMedia(data: Buffer, mime: string): Promise<string>;
   getMedia(id: string): Promise<{ data: Buffer; mime: string } | null>;
   stats(): Promise<CityStats>;
+  /** issues whose evidence photo sits closest to a query vector (text or photo), best first */
+  similar(embedding: number[], limit: number): Promise<Array<{ issue: Issue; similarity: number }>>;
+  /** every resident report since a time, light enough to plot: when, where, what */
+  activity(since: number): Promise<ActivityPoint[]>;
 
   // Idempotency ledger for phone submissions: one shutter press (session) → at most one commit.
   /** the stored outcome of a session, if it finished; `pending` if another request is committing it */
