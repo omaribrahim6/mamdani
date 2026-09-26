@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+/* City Command HQ: deep midnight / slate structure, electric blue brand. */
+@theme {
+  --color-midnight-950: #050a16;
+  --color-midnight-900: #0a1224;
+  --color-midnight-800: #0f1b33;
+  --color-slateblue-700: #1c2b4a;
+  --color-slateblue-600: #283b61;
+  --color-slateblue-400: #6b82ad;
+  --color-brand: #3b82f6;
+  --color-brand-glow: #60a5fa;
+  --color-boss: #ef4444;
+  --color-quest: #eab308;
+  --color-loot: #22c55e;
+  --font-display: 'Lato', system-ui, sans-serif;
+  --font-sans: 'Noto Sans', system-ui, sans-serif;
+  --font-mono: 'Noto Sans Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  html.hq body { background: var(--color-midnight-950); }
+}
+
+.hq-panel { background: linear-gradient(180deg, rgba(28,43,74,.72), rgba(15,27,51,.82)); border: 1px solid rgba(107,130,173,.22); box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 18px 40px -24px rgba(0,0,0,.8); }
+.hq-glow { box-shadow: 0 0 0 1px rgba(59,130,246,.55), 0 0 22px -4px rgba(59,130,246,.55); }
+.hq-bar { background: linear-gradient(90deg, #3b82f6, #22d3ee); }
+@keyframes hq-pop { 0% { transform: translateY(0) scale(.8); opacity: 0; } 20% { opacity: 1; transform: translateY(-6px) scale(1.05); } 100% { transform: translateY(-38px) scale(1); opacity: 0; } }
+.hq-xp-pop { animation: hq-pop 1.2s ease-out forwards; }
+@media (prefers-reduced-motion: reduce) { .hq-xp-pop { animation: none; opacity: 0; } }

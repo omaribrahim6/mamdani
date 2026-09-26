@@ -199,6 +199,8 @@ export class CityTwin implements View {
   private mascotTarget = new THREE.Vector3(CITY_HALL.x + 1.2, 0, CITY_HALL.y + 1.2);
   private walkPhase = 0;
   private wave = 0;
+  /** optional beam colour override (the HQ view colours by game status instead of category) */
+  colorFor?: (issue: ApiIssue, open: boolean) => string;
   onFocus?: (p: { x: number; y: number } | null) => void;
   onHover?: (issue: ApiIssue | null, p: { x: number; y: number } | null) => void;
 
@@ -420,7 +422,7 @@ export class CityTwin implements View {
       if (delta < dt * 0.6 + 0.001) b.flare = 1;
       b.flare = Math.max(0, b.flare - dt * 1.3);
       const sel = i.id === this.selected ? 1 : 0, hov = i.id === this.hovered ? 1 : 0;
-      const color = open ? category(i.category).color : '#6fd0a0';
+      const color = this.colorFor ? this.colorFor(i, open) : open ? category(i.category).color : '#6fd0a0';
       b.beam.material.uniforms.uColor.value.set(color);
       b.ring.material.uniforms.uColor.value.set(color);
       b.beam.material.uniforms.uGlow.value = b.shown * (0.55 + b.flare * 0.6 + sel * 0.6 + hov * 0.35);

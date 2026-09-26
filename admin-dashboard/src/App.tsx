@@ -1,5 +1,5 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { Dashboard } from './components/Dashboard';
+import { HQDashboard } from './hq/HQDashboard';
 import { LoginScreen } from './components/LoginScreen';
 
 export default function App() {
@@ -24,5 +24,5 @@ export default function App() {
     );
   }
 
-  return isAuthenticated ? <Dashboard /> : <LoginScreen />;
+  return isAuthenticated ? <HQDashboard /> : <LoginScreen />;
 }

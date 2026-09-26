@@ -1,11 +1,12 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 // /api goes to the deployed Next app unless you run it locally (API_PROXY=http://localhost:3000).
 const API = process.env.API_PROXY || 'https://mamdani.vercel.app';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   // Pre-bundle every dependency on the first pass. If Vite discovers one later it re-optimizes
   // and renames its cache folder, which Windows often blocks (EPERM → "504 Outdated Optimize Dep",
   // blank page).
