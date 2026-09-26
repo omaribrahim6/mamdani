@@ -15,6 +15,7 @@ import { newSessionId, submitReport, verifyAnswer, type Media } from './api';
 import { flow, framesOpen, initialFlow, liveMaySpeak, mamdaniMode, micOpen, showsSnapshot, type FlowState } from './flow/machine';
 import { GLHost } from './GLHost';
 import { LiveClient } from './live/client';
+import { standardBrief } from './standard';
 import { useMic } from './live/useMic';
 import { useWhere } from './location';
 import { loadMine, saveMine } from './mine';
@@ -381,7 +382,8 @@ export function CaptureScreen() {
         live.tell(
           `[App] The resident just filed a report. Work order ${i.id} (${d!.reportId}). Issue: ${category(i.type).label}, "${i.title}". ` +
             `Summary: ${i.summary} Severity ${i.severity}/100, safety risk ${i.safetyRisk}/100, accessibility impact ${i.accessibilityImpact}. ` +
-            `Location: ${i.address}. Sent to ${i.department}. Status: ${i.status}. ${i.duplicateCount} resident report(s) of this problem so far. ` +
+            `Location: ${i.address}. Sent to ${i.department}. Status: ${i.status}. ${i.duplicateCount} resident report(s) of this problem so far.` +
+            `${standardBrief(i.standard, i.dueAt)} ` +
             `You told them: "${d!.character.response}". Answer their questions about this report from these facts only. It is filed; there is nothing more to submit.`,
         );
         const t = setTimeout(() => dispatch({ type: 'CONVERSE' }), 1400);

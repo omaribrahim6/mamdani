@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { category } from '../../lib/categories';
 import type { AccessImpact, ReportDecision } from '../../lib/types';
 import { STATUS_LABEL } from '../../lib/types';
+import { targetLine } from './standard';
 import { Button } from './ui';
 import { C, F, T } from './theme';
 
@@ -100,6 +101,15 @@ export function ReportSheet({
           <Row label="Goes to">
             <Text style={styles.ddText}>{issue.department}</Text>
           </Row>
+          {issue.standard && (
+            <Row label="City target">
+              <View style={{ gap: 2, flex: 1 }}>
+                <Text style={styles.num}>{targetLine(issue.standard, issue.dueAt)?.replace('City target: ', '') ?? 'Standard on record'}</Text>
+                <Text style={styles.ddText}>{issue.standard.text}</Text>
+                <Text style={styles.source}>{issue.standard.sourceTitle}</Text>
+              </View>
+            </Row>
+          )}
           <Row label="Reports">
             <Text style={styles.ddText}>
               {issue.duplicate
@@ -163,5 +173,6 @@ const styles = StyleSheet.create({
   cell: { width: 11, height: 14, borderRadius: 2, backgroundColor: C.paperLine, transform: [{ skewX: '-12deg' }] },
   summaryLabel: { fontFamily: F.uiSemi, fontSize: T.sm, color: C.curb, marginTop: 16 },
   summary: { fontFamily: F.ui, fontSize: T.md, lineHeight: 23, color: C.asphalt, marginTop: 2 },
+  source: { fontFamily: F.ui, fontSize: T.xs, lineHeight: 16, color: C.curb },
   demo: { fontFamily: F.ui, fontSize: T.xs, color: C.curb, marginTop: 14 },
 });

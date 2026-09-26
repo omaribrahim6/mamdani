@@ -5,6 +5,7 @@ import { category } from '../../lib/categories';
 import type { Issue, Status } from '../../lib/types';
 import { getIssue } from './api';
 import { loadMine, type MyReport } from './mine';
+import { targetLine } from './standard';
 import { Button } from './ui';
 import { C, F, T } from './theme';
 
@@ -86,6 +87,12 @@ export function MyReports({ visible, onClose }: { visible: boolean; onClose: () 
                     {m.address}. Work order {m.issueId}
                     {issue && issue.reports > 1 ? `, ${issue.reports} reports` : ''}
                   </Text>
+                  {issue?.standard && status !== 'resolved' && targetLine(issue.standard, issue.dueAt) && (
+                    <Text style={styles.target} numberOfLines={2}>
+                      {targetLine(issue.standard, issue.dueAt)}
+                      <Text style={styles.targetSource}> · {issue.standard.sourceTitle}</Text>
+                    </Text>
+                  )}
                   <View style={styles.steps}>
                     {STEPS.map((st, i) => (
                       <View
@@ -116,6 +123,8 @@ const styles = StyleSheet.create({
   catBar: { width: 6, borderRadius: 3 },
   itemTitle: { fontFamily: F.uiBlack, fontSize: T.lg, lineHeight: 24, color: C.asphalt },
   meta: { fontFamily: F.ui, fontSize: T.sm, color: C.curb, marginTop: 2, marginBottom: 12 },
+  target: { fontFamily: F.uiSemi, fontSize: T.xs, lineHeight: 16, color: C.asphalt, marginTop: -6, marginBottom: 12 },
+  targetSource: { fontFamily: F.ui, color: C.curb },
   steps: { flexDirection: 'row', gap: 4 },
   step: { flex: 1, paddingTop: 8, borderTopWidth: 4, borderTopColor: C.paperLine },
   stepDone: { borderTopColor: C.asphalt },
