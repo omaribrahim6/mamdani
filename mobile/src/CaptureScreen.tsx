@@ -243,9 +243,9 @@ export function CaptureScreen() {
   // his mouth follows his voice; his face shows he's listening
   useEffect(() => {
     const t = setInterval(() => {
-      const lvl = audio.levelNow();
+      const v = audio.shapeNow();
       const m = mamdaniMode(stateRef.current);
-      (m === 'SCENE' ? scene.current : portrait.current)?.mouthLevel(lvl);
+      (m === 'SCENE' ? scene.current : portrait.current)?.mouthShape(v);
       const h = audio.micLevel > 0.06;
       setHearing((p) => (p === h ? p : h));
     }, 33);
@@ -480,6 +480,7 @@ export function CaptureScreen() {
           ?.perform(OUTFIT[c.outfit], {
             target: targetFor(d!, snap!.photo, W, viewH),
             mood: MOOD[c.emotion],
+            emotion: c.emotion,
             action: c.animation,
             prop: c.prop,
             onArrive: () => dispatch({ type: 'ACT' }),

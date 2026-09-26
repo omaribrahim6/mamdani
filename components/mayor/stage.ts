@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import type { CharacterAnimation, CharacterProp, Mood } from '@/lib/types';
+import type { CharacterAnimation, CharacterEmotion, CharacterProp, Mood } from '@/lib/types';
 import type { MayorOutfit } from './build';
 import { ease, lerp, RigStage, type StageSurface } from './engine';
 import { createMayor } from './models';
+import { EMOTION_FOR_MOOD } from './face';
 import { makeClipboard, makeCone, makeFlashlight } from './props';
 
 export type { StageSurface } from './engine';
@@ -14,6 +15,8 @@ export type { StageSurface } from './engine';
 export interface PerformOpts {
   target: { x: number; y: number }; // 0..1 in the canvas
   mood: Mood;
+  /** Gemini's emotion for this report (finer than mood: adds CHEERFUL); his face holds it */
+  emotion?: CharacterEmotion;
   /** what he does at the problem; defaults to planting his flag */
   action?: CharacterAnimation;
   prop?: CharacterProp;
@@ -145,6 +148,8 @@ export class MayorStage extends RigStage {
       rig.body.rotation.x = lerp(0, action === 'LOOK_UP' ? -0.08 : 0.22, ease(t));
     });
     o.onArrive?.();
+    // his face shows how he feels about it from the moment he sees it, and keeps it while he talks
+    this.expression(o.emotion ?? EMOTION_FOR_MOOD[o.mood]);
     await this.react(o.mood, action);
 
     switch (action) {

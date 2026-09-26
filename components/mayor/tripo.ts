@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeFlag, type MayorOutfit, type MayorRig } from './build';
+import { addFaceMorphs, FACE_SHAPES, type FaceWeights } from './face';
 
 // Tripo's generated Mamdani (image → 3D → auto-rig, Mixamo skeleton), loaded from a .mrig pack
 // (scripts/bake-mamdani.ts) and wrapped so it answers to the same rig as the procedural one:
@@ -124,6 +125,8 @@ export function buildTripoMayor(pack: MrigPack, outfit: MayorOutfit): MayorRig {
   const hips = inner.worldToLocal(bone('Hips').getWorldPosition(new THREE.Vector3()));
   inner.position.set(-hips.x, 0, -hips.z);
 
+  // sculpt the face shapes once per pack (the geometry is shared by every Mamdani built from it)
+  addFaceMorphs(pack.geometry, pack.face);
   const mesh = new THREE.SkinnedMesh(pack.geometry, pack.material);
   mesh.castShadow = true;
   mesh.frustumCulled = false; // skinned bounds move with the pose
@@ -287,6 +290,15 @@ export function buildTripoMayor(pack: MrigPack, outfit: MayorOutfit): MayorRig {
     mouthOverlay: true,
     headAnchor: headBone,
     makeLids,
+    setFace(w: FaceWeights) {
+      const inf = mesh.morphTargetInfluences;
+      if (!inf) return;
+      for (let i = 0; i < FACE_SHAPES.length; i++) inf[i] = w[FACE_SHAPES[i]];
+      // the dark opening behind the lips grows with the jaw
+      const base = mouth.userData.base as THREE.Vector3;
+      mouth.userData.jaw = w.jawOpen;
+      mouth.scale.set(base.x, base.y * (0.3 + w.jawOpen * 1.9), base.z * (0.75 + w.mouthWide * 0.5 - w.mouthRound * 0.35));
+    },
     update() {
       apply(J.spine, body.rotation);
       bone('Spine').scale.copy(body.scale);

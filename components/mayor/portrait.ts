@@ -55,6 +55,7 @@ export class PortraitStage extends RigStage {
   act(b: Behavior) {
     this.behavior = b;
     this.speaking(b === 'talk');
+    this.expression(b === 'listen' ? 'LISTENING' : b === 'think' ? 'THINKING' : 'NEUTRAL');
     if (b === 'talk') this.look('you');
     else if (b === 'watch' || b === 'listen') this.look('feed');
   }
