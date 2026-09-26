@@ -1,0 +1,149 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   MAMDANI — the street is the interface.
+   Surfaces are the city's own materials (asphalt, concrete, work-order paper).
+   Colour is only ever utility-marking paint, and it always means something.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* materials */
+  --asphalt: #26292c;
+  --asphalt-2: #34383c;
+  --curb: #5b6166;
+  --concrete: #d9d7d1;
+  --concrete-2: #cfccc5;
+  --paper: #f3f2ee;
+  --paper-line: #d6d3cb;
+
+  /* marking paint */
+  --survey: #ff2e88; /* AI + brand: temporary survey marks */
+  --hivis: #ff6a13; /* priority, flags */
+  --hardhat: #ffc61a;
+  --ok: #12995a;
+
+  /* type */
+  --stencil: var(--font-stencil), 'Arial Narrow', sans-serif;
+  --ui: var(--font-ui), system-ui, sans-serif;
+
+  /* scale: 1.25 */
+  --t-xs: 0.75rem;
+  --t-sm: 0.875rem;
+  --t-md: 1rem;
+  --t-lg: 1.25rem;
+  --t-xl: 1.5625rem;
+  --t-2xl: 1.953rem;
+  --t-3xl: 2.441rem;
+  --t-4xl: 3.052rem;
+  --t-5xl: 3.815rem;
+
+  --r-sm: 6px;
+  --r-md: 12px;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --shadow-lift: 0 1px 0 rgba(38, 41, 44, 0.08), 0 10px 30px -12px rgba(38, 41, 44, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+body {
+  background: var(--concrete);
+  color: var(--asphalt);
+  font-family: var(--ui);
+  font-size: var(--t-md);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'tnum' 1;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+:focus-visible {
+  outline: 3px solid var(--survey);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* concrete: poured, a little speckled — never flat */
+.concrete {
+  background-color: var(--concrete);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .15 0 0 0 0 .16 0 0 0 0 .17 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.asphalt {
+  background-color: var(--asphalt);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+  color: var(--paper);
+}
+
+/* road-stencil lettering: only for things a crew would actually paint */
+.stencil {
+  font-family: var(--stencil);
+  font-weight: 800;
+  font-variation-settings: 'opsz' 72;
+  letter-spacing: 0.02em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* buttons: a pressed-steel feel — heavy, obvious, one per screen is primary */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  min-height: 48px;
+  padding: 0 1.25rem;
+  border-radius: var(--r-sm);
+  border: 2px solid var(--asphalt);
+  background: var(--paper);
+  font-weight: 700;
+  font-size: var(--t-md);
+  text-decoration: none;
+  transition: transform 0.12s var(--ease), background 0.2s;
+}
+.btn:active {
+  transform: translateY(1px) scale(0.99);
+}
+.btn-primary {
+  background: var(--asphalt);
+  color: var(--paper);
+}
+.btn-primary:hover {
+  background: var(--asphalt-2);
+}
+.btn-ghost {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
