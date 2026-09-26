@@ -18,6 +18,8 @@ export interface PerformOpts {
   action?: CharacterAnimation;
   prop?: CharacterProp;
   size?: number; // fraction of the frame height he should occupy
+  /** seconds for the walk in (default 1.7) */
+  walk?: number;
   /** he's reached the problem and is about to act */
   onArrive?: () => void;
   onThunk?: () => void;
@@ -132,7 +134,7 @@ export class MayorStage extends RigStage {
       rig.root.position.copy(stand);
     } else {
       this.walking = 1;
-      await this.tween(1.7, (t) => rig.root.position.lerpVectors(start, stand, ease(t)));
+      await this.tween(o.walk ?? 1.7, (t) => rig.root.position.lerpVectors(start, stand, ease(t)));
       this.walking = 0;
     }
 

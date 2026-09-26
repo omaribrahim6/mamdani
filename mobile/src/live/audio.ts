@@ -102,8 +102,30 @@ export class LiveAudio {
 
   /** Queue a chunk of Live's voice (base64 16-bit PCM). */
   play(data: string, rate = 24000) {
+    this.enqueue(decodePCM(data), rate);
+  }
+
+  /** Decode a bundled clip (a require()'d asset) to play later with playClip. */
+  async loadClip(asset: number): Promise<AudioBuffer | null> {
+    await this.starting?.catch(() => {});
+    if (!this.context) return null;
+    try {
+      return await this.context.decodeAudioData(asset);
+    } catch (e) {
+      console.warn('clip decode failed', e);
+      return null;
+    }
+  }
+
+  /** Play a decoded clip as his voice (mouth, mic muting and drain() all apply). */
+  playClip(clip: AudioBuffer): boolean {
+    if (this.disposed || !this.context || !this.player) return false;
+    this.enqueue(new Float32Array(clip.getChannelData(0)), clip.sampleRate);
+    return true;
+  }
+
+  private enqueue(samples: Float32Array<ArrayBuffer>, rate: number) {
     if (this.disposed || !this.context || !this.player) return;
-    const samples = decodePCM(data);
     if (!samples.length) return;
     const buffer = this.context.createBuffer(1, samples.length, rate);
     buffer.copyToChannel(samples, 0);
