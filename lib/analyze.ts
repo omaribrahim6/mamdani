@@ -1,6 +1,13 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { CATEGORY_IDS, category, type CategoryId } from './categories';
-import type { Analysis } from './types';
+import {
+  CHARACTER_ANIMATIONS,
+  CHARACTER_EMOTIONS,
+  CHARACTER_OUTFITS,
+  CHARACTER_PROPS,
+  type Analysis,
+  type CharacterDecision,
+} from './types';
 
 const CITY = process.env.NEXT_PUBLIC_CITY || 'Ottawa';
 
@@ -37,8 +44,51 @@ const SCHEMA = {
     },
     mood: { type: 'string', enum: ['dismayed', 'determined', 'impressed', 'confused'] },
     confidence: { type: 'number', minimum: 0, maximum: 1 },
+    character: {
+      type: 'object',
+      description: 'How the tiny Mamdani character presents this, chosen ONLY from the listed options.',
+      properties: {
+        outfit: {
+          type: 'string',
+          enum: [...CHARACTER_OUTFITS],
+          description:
+            'CONSTRUCTION for roads, sidewalks, water, drainage, signals; SANITATION for garbage/graffiti; INSPECTOR for accessibility, trees, anything needing assessment; DEFAULT for non-infrastructure complaints.',
+        },
+        animation: {
+          type: 'string',
+          enum: [...CHARACTER_ANIMATIONS],
+          description:
+            'PLACE_FLAG marks a spot on the ground (potholes, broken slabs). PLACE_CONE blocks off a hazard people could walk or ride into. CHECK_CLIPBOARD for assessments (accessibility, trees, bins). LOOK_UP for things overhead (streetlights, signs, signals). INSPECT_GROUND for small or subtle damage. POINT_AT_ISSUE / SHAKE_HEAD / ACKNOWLEDGE otherwise.',
+        },
+        prop: {
+          type: 'string',
+          enum: [...CHARACTER_PROPS],
+          description: 'Must fit the animation: PLACE_FLAG=WARNING_FLAG, PLACE_CONE=TRAFFIC_CONE, CHECK_CLIPBOARD=CLIPBOARD, LOOK_UP/INSPECT_GROUND=FLASHLIGHT, else NONE.',
+        },
+        emotion: { type: 'string', enum: [...CHARACTER_EMOTIONS] },
+        response: {
+          type: 'string',
+          description:
+            'What he says out loud after the action, to the resident. Max 16 words. Warm, casual, a bit funny, city-worker energy. Confirms it is marked for the city. No politics, never mocks the resident, never promises a date.',
+        },
+      },
+      required: ['outfit', 'animation', 'prop', 'emotion', 'response'],
+    },
+    clarification: {
+      type: 'object',
+      description: 'Only when two DIFFERENT problems are plausible and you truly cannot tell which one the resident means. Otherwise needed=false.',
+      properties: {
+        needed: { type: 'boolean' },
+        question: { type: 'string', description: 'One short spoken question from Mamdani, e.g. "Is it the broken curb or the blocked sidewalk?"' },
+        options: { type: 'array', items: { type: 'string' }, description: '2 or 3 short tappable answers, 1-4 words each' },
+      },
+      required: ['needed', 'question', 'options'],
+    },
   },
-  required: ['isCivicIssue', 'category', 'title', 'summary', 'infrastructure', 'severity', 'safetyRisk', 'hazards', 'accessibility', 'box', 'transcript', 'mayorLine', 'mood', 'confidence'],
+  required: [
+    'isCivicIssue', 'category', 'title', 'summary', 'infrastructure', 'severity', 'safetyRisk', 'hazards',
+    'accessibility', 'box', 'transcript', 'mayorLine', 'mood', 'confidence', 'character', 'clarification',
+  ],
 };
 
 const PROMPT = `You are the intake inspector for the City of ${CITY}'s public-works department.
@@ -65,13 +115,21 @@ const gemini = () => {
 
 export const hasGemini = () => !!process.env.GEMINI_API_KEY;
 
+export const TEXT_MODEL = () => process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+
 export async function analyze(input: {
   photo: { data: Buffer; mime: string };
   video?: { data: Buffer; mime: string } | null;
   hint?: string;
+  /** what the resident and Mamdani said before the shutter (from the live session) */
+  context?: string;
+  /** the resident's answer to Mamdani's clarifying question */
+  answer?: string;
+  /** true on the retry after a clarification: decide now, don't ask again */
+  final?: boolean;
 }): Promise<Analysis> {
   const ai = gemini();
-  if (!ai) return demoAnalysis(input.hint);
+  if (!ai) return demoAnalysis([input.hint, input.context, input.answer].filter(Boolean).join(' '));
 
   const parts: Array<{ inlineData: { mimeType: string; data: string } } | { text: string }> = [
     { inlineData: { mimeType: input.photo.mime, data: input.photo.data.toString('base64') } },
@@ -80,12 +138,24 @@ export async function analyze(input: {
   if (input.video && input.video.data.length < 18 * 1024 * 1024) {
     parts.push({ inlineData: { mimeType: input.video.mime.split(';')[0], data: input.video.data.toString('base64') } });
   }
-  parts.push({ text: PROMPT + (input.hint ? `\nThe resident typed: "${input.hint}"` : '') });
+  let text = PROMPT;
+  if (input.hint) text += `\nThe resident typed: "${input.hint}"`;
+  if (input.context) {
+    text += `\n\nWhat was said while they pointed the camera (their live conversation with Mamdani, oldest first). Use it to understand which problem they mean and for context; judge the problem itself from the photo:\n${input.context.slice(-2500)}`;
+  }
+  if (input.answer) text += `\n\nMamdani asked which problem they meant. The resident answered: "${input.answer}". Report that one.`;
+  if (input.final || input.answer) text += '\nDo not ask for clarification: set clarification.needed false.';
+  parts.push({ text });
 
   const res = await ai.models.generateContent({
-    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    model: TEXT_MODEL(),
     contents: [{ role: 'user', parts }],
-    config: { responseMimeType: 'application/json', responseJsonSchema: SCHEMA, temperature: 0.3 },
+    config: {
+      responseMimeType: 'application/json',
+      responseJsonSchema: SCHEMA,
+      temperature: 0.3,
+      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+    },
   });
   const raw = JSON.parse(res.text ?? '{}');
   return normalize(raw, 'gemini');
@@ -120,7 +190,61 @@ function normalize(r: Record<string, unknown>, engine: Analysis['engine']): Anal
     mood: (['dismayed', 'determined', 'impressed', 'confused'] as const).includes(r.mood as never) ? (r.mood as Analysis['mood']) : 'determined',
     confidence: Math.max(0, Math.min(1, Number(r.confidence ?? 0.5))),
     engine,
+    character: normalizeCharacter(r.character, cat, String(r.mayorLine ?? ''), String(r.mood ?? '')),
+    clarification: normalizeClarification(r.clarification),
   };
+}
+
+// What he wears and does when the model doesn't say (or says something off-list).
+const DEFAULT_ACT: Partial<Record<CategoryId, Pick<CharacterDecision, 'outfit' | 'animation'>>> = {
+  pothole: { outfit: 'CONSTRUCTION', animation: 'PLACE_FLAG' },
+  sidewalk: { outfit: 'INSPECTOR', animation: 'CHECK_CLIPBOARD' },
+  streetlight: { outfit: 'CONSTRUCTION', animation: 'LOOK_UP' },
+  traffic: { outfit: 'CONSTRUCTION', animation: 'LOOK_UP' },
+  bike_lane: { outfit: 'CONSTRUCTION', animation: 'PLACE_CONE' },
+  water: { outfit: 'CONSTRUCTION', animation: 'PLACE_CONE' },
+  drainage: { outfit: 'CONSTRUCTION', animation: 'PLACE_CONE' },
+  waste: { outfit: 'SANITATION', animation: 'CHECK_CLIPBOARD' },
+  graffiti: { outfit: 'SANITATION', animation: 'POINT_AT_ISSUE' },
+  tree: { outfit: 'INSPECTOR', animation: 'CHECK_CLIPBOARD' },
+};
+const PROP_FOR: Record<CharacterDecision['animation'], CharacterDecision['prop']> = {
+  PLACE_FLAG: 'WARNING_FLAG',
+  PLACE_CONE: 'TRAFFIC_CONE',
+  CHECK_CLIPBOARD: 'CLIPBOARD',
+  LOOK_UP: 'FLASHLIGHT',
+  INSPECT_GROUND: 'FLASHLIGHT',
+  POINT_AT_ISSUE: 'NONE',
+  SHAKE_HEAD: 'NONE',
+  ACKNOWLEDGE: 'NONE',
+};
+const EMOTION_FOR_MOOD: Record<string, CharacterDecision['emotion']> = {
+  dismayed: 'CONCERNED',
+  determined: 'DETERMINED',
+  impressed: 'IMPRESSED',
+  confused: 'CONFUSED',
+};
+const oneOf = <T extends string>(list: readonly T[], v: unknown, fallback: T): T => (list.includes(v as T) ? (v as T) : fallback);
+
+function normalizeCharacter(raw: unknown, cat: CategoryId, mayorLine: string, mood: string): CharacterDecision {
+  const c = (raw ?? {}) as Partial<Record<keyof CharacterDecision, unknown>>;
+  const d = DEFAULT_ACT[cat] ?? { outfit: 'DEFAULT', animation: 'ACKNOWLEDGE' };
+  const animation = oneOf(CHARACTER_ANIMATIONS, c.animation, d.animation);
+  return {
+    outfit: oneOf(CHARACTER_OUTFITS, c.outfit, d.outfit),
+    animation,
+    // the prop always matches the action, whatever the model said
+    prop: PROP_FOR[animation],
+    emotion: oneOf(CHARACTER_EMOTIONS, c.emotion, EMOTION_FOR_MOOD[mood] ?? 'DETERMINED'),
+    response: String(c.response || mayorLine || 'Got it. I’ve marked this one for the city.').slice(0, 160),
+  };
+}
+
+function normalizeClarification(raw: unknown): Analysis['clarification'] {
+  const c = (raw ?? {}) as { needed?: unknown; question?: unknown; options?: unknown };
+  const options = Array.isArray(c.options) ? c.options.map(String).filter(Boolean).slice(0, 3) : [];
+  const question = String(c.question ?? '');
+  return { needed: c.needed === true && !!question && options.length >= 2, question, options };
 }
 
 /** No key configured: a clearly-labelled canned analysis so the whole flow still works. */
