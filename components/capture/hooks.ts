@@ -150,33 +150,8 @@ export function useLocation() {
   return { ...loc, label };
 }
 
-// ── voice: ElevenLabs via /api/voice, browser speech as a fallback ──────────
-let ctx: AudioContext | null = null;
-export function unlockAudio() {
-  ctx ??= new AudioContext();
-  if (ctx.state === 'suspended') void ctx.resume();
-  return ctx;
-}
-
-export async function speak(text: string, onStart: (analyser: AnalyserNode | null) => void, onEnd: () => void) {
-  try {
-    const r = await fetch('/api/voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
-    if (r.status === 200) {
-      const c = unlockAudio();
-      const buf = await c.decodeAudioData(await r.arrayBuffer());
-      const src = c.createBufferSource();
-      src.buffer = buf;
-      const analyser = c.createAnalyser();
-      analyser.fftSize = 128;
-      src.connect(analyser).connect(c.destination);
-      src.onended = onEnd;
-      onStart(analyser);
-      src.start();
-      return;
-    }
-  } catch {
-    /* fall through */
-  }
+// Read Gemini's reply using device speech. Mobile conversation uses Gemini Live audio.
+export function speak(text: string, onStart: (analyser: AnalyserNode | null) => void, onEnd: () => void) {
   if ('speechSynthesis' in window) {
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;

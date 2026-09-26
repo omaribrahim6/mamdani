@@ -4,7 +4,7 @@ Report civic problems with a photo and a conversation. An animated inspector hel
 
 ## Architecture
 
-The web and mobile apps share a Next.js backend that analyzes evidence, matches duplicate issues, and stores reports. Mobile also connects directly to Gemini Live for camera and voice conversation.
+The web and mobile apps share a Next.js backend that analyzes evidence, matches duplicate issues, and stores reports. Gemini models power the AI interaction, with mobile connecting directly to Gemini Live for camera and voice conversation. The web app reads generated replies using the browser's built-in speech synthesis.
 
 ```mermaid
 flowchart TD
@@ -13,7 +13,6 @@ flowchart TD
     Mobile <-->|Camera frames and voice| Live["Gemini Live"]
     Backend["Next.js API and backend workflows"] <-->|Analysis, screening, embeddings and answer checks| AI["Google AI services"]
     Backend <-->|Coordinates and address| Geo["Nominatim geocoding"]
-    Backend <-->|Text and web speech audio| Voice["ElevenLabs"]
     Backend <-->|Issues, reports and evidence| DB["PostgreSQL / TimescaleDB"]
     Backend <-->|Without database configuration| Demo["Seeded in-memory store"]
 ```
@@ -32,6 +31,6 @@ npm install
 npm run dev
 ```
 
-Open [localhost:3000](http://localhost:3000). Use `.env.example` as a starting point for `.env.local` when configuring services. Without database and AI credentials, the app uses seeded memory storage and demo analysis. Live conversation and ElevenLabs speech require their service credentials.
+Open [localhost:3000](http://localhost:3000). Use `.env.example` as a starting point for `.env.local` when configuring services. Without database and AI credentials, the app uses seeded memory storage and demo analysis. Live conversation requires Google Cloud credentials for Gemini Live; browser speech needs no separate service credentials.
 
 See [mobile setup](mobile/README.md) for the Expo app and [architecture and data flows](docs/architecture.md) for API contracts, database details, and workflow behavior.

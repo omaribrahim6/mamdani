@@ -6,7 +6,7 @@ import { Mayor, type MayorHandle } from '@/components/mayor/Mayor';
 import { SprayMark } from '@/components/marks/Spray';
 import { category } from '@/lib/categories';
 import type { Analysis, SubmitResult } from '@/lib/types';
-import { frameFromVideoFile, saveMine, speak, unlockAudio, useCamera, useLocation, useRecorder } from './hooks';
+import { frameFromVideoFile, saveMine, speak, useCamera, useLocation, useRecorder } from './hooks';
 import { MyReports } from './MyReports';
 import { Ticket } from './Ticket';
 import s from './capture.module.css';
@@ -72,7 +72,6 @@ export function CaptureApp() {
   const onShutterDown = (e: React.PointerEvent) => {
     if (cam.state !== 'live') return;
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    unlockAudio();
     holdTimer.current = window.setTimeout(() => {
       if (cam.hasAudio && rec.start()) {
         recStart.current = performance.now();
@@ -111,7 +110,6 @@ export function CaptureApp() {
 
   const onFile = async (f: File | undefined) => {
     if (!f) return;
-    unlockAudio();
     if (f.type.startsWith('video/')) {
       const frame = await frameFromVideoFile(f);
       if (frame) void submit(frame, f);
