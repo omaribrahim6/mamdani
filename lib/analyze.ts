@@ -1,4 +1,5 @@
-import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { ThinkingLevel } from '@google/genai';
+import { genai, hasAI, MODELS } from './ai';
 import { CATEGORY_IDS, category, type CategoryId } from './categories';
 import {
   CHARACTER_ANIMATIONS,
@@ -105,17 +106,10 @@ Decide what public-infrastructure problem is shown and turn it into a report a c
 - The box must tightly frame the problem in the photo (not the whole road).
 - If nothing is a public-infrastructure problem, set isCivicIssue false, category "other", and have the mayor gently ask what's wrong.`;
 
-let client: GoogleGenAI | null = null;
-const gemini = () => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  client ??= new GoogleGenAI({ apiKey });
-  return client;
-};
+const gemini = genai;
+export const hasGemini = hasAI;
 
-export const hasGemini = () => !!process.env.GEMINI_API_KEY;
-
-export const TEXT_MODEL = () => process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+export const TEXT_MODEL = MODELS.decide;
 
 export async function analyze(input: {
   photo: { data: Buffer; mime: string };
