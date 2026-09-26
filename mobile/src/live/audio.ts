@@ -1,5 +1,13 @@
 import { fromByteArray, toByteArray } from 'base64-js';
-import { AudioContext, AudioManager, AudioRecorder, type AudioBufferQueueSourceNode } from 'react-native-audio-api';
+import {
+  AudioContext,
+  AudioManager,
+  AudioRecorder,
+  type AudioBuffer,
+  type AudioBufferQueueSourceNode,
+  type AudioBufferSourceNode,
+  type GainNode,
+} from 'react-native-audio-api';
 
 // Mamdani's ears and voice on the phone (react-native-audio-api, needs a development build):
 //   • the mic streams 16 kHz PCM to Gemini Live
@@ -33,7 +41,7 @@ const rms = (s: Float32Array, from = 0, to = s.length) => {
 };
 
 export class LiveAudio {
-  private recorder = new AudioRecorder();
+  private recorder: AudioRecorder | null = null; // created on start(), not per instance
   private context: AudioContext | null = null;
   private player: AudioBufferQueueSourceNode | null = null;
   private queued = new Map<string, number>();
@@ -78,8 +86,9 @@ export class LiveAudio {
       }
     };
     this.player.start(0, 0);
-    this.recorder.onError(() => this.onError?.('The microphone stopped.'));
-    this.recorder.onAudioReady({ sampleRate: 16000, bufferLength: 1600, channelCount: 1 }, ({ buffer }) => {
+    const recorder = (this.recorder = new AudioRecorder());
+    recorder.onError(() => this.onError?.('The microphone stopped.'));
+    recorder.onAudioReady({ sampleRate: 16000, bufferLength: 1600, channelCount: 1 }, ({ buffer }) => {
       if (this.disposed) return;
       const samples = buffer.getChannelData(0);
       const silent = this.muted || this.queued.size > 0 || Date.now() < this.muteUntil;
@@ -87,7 +96,7 @@ export class LiveAudio {
       // keep sending (silence) so Live's voice detection keeps moving
       send(encodePCM(silent ? new Float32Array(samples.length) : samples));
     });
-    const r = await this.recorder.start();
+    const r = await recorder.start();
     if (r.status === 'error') throw new Error('Could not start the microphone.');
   }
 
@@ -130,6 +139,54 @@ export class LiveAudio {
     return this.queued.size > 0;
   }
 
+  // ── the waiting music (Lyria), while he's off getting ready ──
+  private musicBuffer: AudioBuffer | null = null;
+  private music: { src: AudioBufferSourceNode; gain: GainNode } | null = null;
+
+  /** Decode a bundled track once (a require()'d asset). */
+  async loadMusic(asset: number) {
+    await this.starting?.catch(() => {});
+    if (!this.context || this.musicBuffer) return;
+    try {
+      this.musicBuffer = await this.context.decodeAudioData(asset);
+    } catch (e) {
+      console.warn('music decode failed', e);
+    }
+  }
+
+  startMusic(volume = 0.32, fadeIn = 0.5) {
+    if (!this.context || !this.musicBuffer || this.music) return;
+    const t = this.context.currentTime;
+    const gain = this.context.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(volume, t + fadeIn);
+    const src = this.context.createBufferSource();
+    src.buffer = this.musicBuffer;
+    src.loop = true;
+    src.connect(gain);
+    gain.connect(this.context.destination);
+    src.start(t);
+    this.music = { src, gain };
+  }
+
+  stopMusic(fadeOut = 0.7) {
+    const m = this.music;
+    if (!m || !this.context) return;
+    this.music = null;
+    const t = this.context.currentTime;
+    m.gain.gain.setValueAtTime(m.gain.gain.value, t);
+    m.gain.gain.linearRampToValueAtTime(0, t + fadeOut);
+    setTimeout(() => {
+      try {
+        m.src.stop();
+        m.src.disconnect();
+        m.gain.disconnect();
+      } catch {
+        /* already stopped */
+      }
+    }, fadeOut * 1000 + 100);
+  }
+
   /** Resolves when everything queued has been heard. */
   drain(timeoutMs = 15000): Promise<void> {
     if (!this.queued.size) return Promise.resolve();
@@ -157,10 +214,15 @@ export class LiveAudio {
 
   async dispose() {
     this.disposed = true;
+    this.stopMusic(0.05);
     await this.starting?.catch(() => {});
-    this.recorder.clearOnAudioReady();
-    if (this.recorder.isRecording()) await this.recorder.stop().catch(() => {});
-    this.recorder.clearOnError();
+    const rec = this.recorder;
+    this.recorder = null;
+    if (rec) {
+      rec.clearOnAudioReady();
+      if (rec.isRecording()) await rec.stop().catch(() => {});
+      rec.clearOnError();
+    }
     this.interrupt();
     if (this.player) {
       this.player.onBufferEnded = null;
