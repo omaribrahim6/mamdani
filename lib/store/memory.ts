@@ -14,6 +14,7 @@ interface State {
   reports: Report[];
   media: Map<string, { data: Buffer; mime: string }>;
   sessions: Map<string, ReportResponse | null>;
+  embeddings: Map<number, number[]>;
   nextId: number;
 }
 
@@ -28,7 +29,7 @@ function reprioritize(i: Issue, now = Date.now()) {
 
 function seed(): State {
   const now = Date.now();
-  const st: State = { issues: new Map(), reports: [], media: new Map(), sessions: new Map(), nextId: 1831 };
+  const st: State = { issues: new Map(), reports: [], media: new Map(), sessions: new Map(), embeddings: new Map(), nextId: 1831 };
   // deterministic jitter so the charts look the same on every restart
   let s = 7;
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
@@ -96,17 +97,23 @@ export const memoryStore: Store = {
     return { issue: reprioritize(issue), reports: state().reports.filter((r) => r.issueId === id).sort((a, b) => b.createdAt - a.createdAt) };
   },
 
-  async openNear(lat, lng, radiusM, cat: CategoryId) {
-    return [...state().issues.values()]
+  async openNear(lat, lng, radiusM, cat: CategoryId, embedding) {
+    const st = state();
+    return [...st.issues.values()]
       .filter((i) => i.status !== 'resolved' && i.category === cat)
-      .map((i) => ({ ...i, distance: metersBetween(lat, lng, i.lat, i.lng) }))
+      .map((i) => {
+        const e = st.embeddings.get(i.id);
+        const similarity = e && embedding ? e.reduce((s, x, k) => s + x * embedding[k], 0) : null;
+        return { ...i, distance: metersBetween(lat, lng, i.lat, i.lng), similarity };
+      })
       .filter((i) => i.distance <= radiusM)
       .sort((a, b) => a.distance - b.distance);
   },
 
-  async createIssue(n: NewIssue, first) {
+  async createIssue(n: NewIssue, first, embedding) {
     const st = state();
     const id = st.nextId++;
+    if (embedding) st.embeddings.set(id, embedding);
     const now = Date.now();
     const issue: Issue = reprioritize({
       ...n, id, priority: 0, priorityParts: { severity: 0, safety: 0, accessibility: 0, confirmations: 0, age: 0 },

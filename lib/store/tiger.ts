@@ -16,6 +16,7 @@ type Row = Record<string, unknown>;
 const ms = (v: unknown) => (v ? new Date(v as string).getTime() : null);
 
 function toIssue(r: Row, now = Date.now()): Issue {
+  delete r.embedding;
   const base = {
     id: Number(r.id),
     category: r.category as CategoryId,
@@ -88,32 +89,34 @@ export const tigerStore: Store = {
     return { issue: toIssue(i.rows[0]), reports: r.rows.map(toReport) };
   },
 
-  async openNear(lat, lng, radiusM, cat) {
-    // bounding box in SQL (indexed), exact distance in JS
+  async openNear(lat, lng, radiusM, cat, embedding) {
+    // bounding box in SQL (indexed), exact distance in JS; photo similarity from pgvector
     const dLat = radiusM / 111_320;
     const dLng = radiusM / (111_320 * Math.cos((lat * Math.PI) / 180));
     const { rows } = await db().query(
-      `select * from issues where status <> 'resolved' and category = $1 and lat between $2 and $3 and lng between $4 and $5`,
-      [cat, lat - dLat, lat + dLat, lng - dLng, lng + dLng],
+      `select *, case when $6::vector is null or embedding is null then null else 1 - (embedding <=> $6::vector) end as similarity
+       from issues where status <> 'resolved' and category = $1 and lat between $2 and $3 and lng between $4 and $5`,
+      [cat, lat - dLat, lat + dLat, lng - dLng, lng + dLng, embedding ? `[${embedding.join(',')}]` : null],
     );
     return rows
-      .map((r) => toIssue(r))
+      .map((r) => ({ ...toIssue(r), similarity: r.similarity == null ? null : Number(r.similarity) }))
       .map((i) => ({ ...i, distance: metersBetween(lat, lng, i.lat, i.lng) }))
       .filter((i) => i.distance <= radiusM)
       .sort((a, b) => a.distance - b.distance);
   },
 
-  async createIssue(n: NewIssue, first) {
+  async createIssue(n: NewIssue, first, embedding) {
     const now = Date.now();
     const { rows } = await db().query(
       `insert into issues (category, title, summary, lat, lng, address, severity, safety_risk, hazards, accessibility,
-         department, status, reports, first_reported_at, last_reported_at, media_id, box, events)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1, to_timestamp($13/1000.0), to_timestamp($13/1000.0), $14, $15, $16)
+         department, status, reports, first_reported_at, last_reported_at, media_id, box, events, embedding)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1, to_timestamp($13/1000.0), to_timestamp($13/1000.0), $14, $15, $16, $17::vector)
        returning *`,
       [
         n.category, n.title, n.summary, n.lat, n.lng, n.address, n.severity, n.safetyRisk, JSON.stringify(n.hazards),
         n.accessibility, n.department, n.status, now, n.mediaId, n.box ? JSON.stringify(n.box) : null,
         JSON.stringify([{ at: now, kind: 'reported', note: 'First report' }]),
+        embedding ? `[${embedding.join(',')}]` : null,
       ],
     );
     const issue = toIssue(rows[0]);

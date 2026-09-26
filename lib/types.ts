@@ -158,6 +158,15 @@ export interface ReportDecision {
   character: CharacterDecision;
   confidence: number;
   engine: Analysis['engine'];
+  /** what the pipeline checked before filing */
+  checks?: {
+    screened: boolean;
+    /** faces / licence plates blurred in the stored photo */
+    blurred: number;
+    /** how it was recognised as a duplicate: photo fingerprint, model comparison, or location alone */
+    matchedBy: 'photo' | 'model' | 'location' | null;
+    similarity: number | null;
+  };
 }
 
 /** What POST /api/report answers. Only `committed` wrote anything. */
