@@ -8,6 +8,8 @@ const root = path.resolve(__dirname, '..');
 const config = getDefaultConfig(__dirname);
 
 config.watchFolders = [path.join(root, 'lib'), path.join(root, 'components', 'mayor')];
+// Mamdani's generated models (scripts/bake-mamdani.ts) ship as binary assets
+config.resolver.assetExts.push('mrig');
 
 const here = path.join(__dirname, 'index.ts');
 const upstream = config.resolver.resolveRequest;
