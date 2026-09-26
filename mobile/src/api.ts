@@ -68,3 +68,19 @@ export async function whereLabel(lat: number, lng: number): Promise<string | nul
     return null;
   }
 }
+
+/** Is what Mamdani is about to say backed by the city's record of this report? Returns what to say. */
+export async function verifyAnswer(issueId: number, answer: string, question: string): Promise<{ grounded: boolean; answer: string }> {
+  try {
+    const r = await fetch(`${API}/api/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ issueId, answer, question }),
+    });
+    if (!r.ok) return { grounded: true, answer };
+    const j = await r.json();
+    return { grounded: j.grounded !== false, answer: String(j.answer || answer) };
+  } catch {
+    return { grounded: true, answer };
+  }
+}

@@ -107,6 +107,22 @@ export function ReportSheet({
                 : 'You’re the first to report this.'}
             </Text>
           </Row>
+          {decision.checks && (
+            <Row label="Checked">
+              <View style={{ gap: 2, flex: 1 }}>
+                <Text style={styles.ddText}>Screened before it was saved</Text>
+                {decision.checks.blurred > 0 && (
+                  <Text style={styles.ddText}>
+                    {decision.checks.blurred} {decision.checks.blurred === 1 ? 'face or plate' : 'faces or plates'} blurred for privacy
+                  </Text>
+                )}
+                {decision.checks.matchedBy === 'photo' && decision.checks.similarity != null && (
+                  <Text style={styles.ddText}>Matched to the existing report by photo ({Math.round(decision.checks.similarity * 100)}% alike)</Text>
+                )}
+                {decision.checks.matchedBy === 'model' && <Text style={styles.ddText}>Confirmed as the same problem by comparing photos</Text>}
+              </View>
+            </Row>
+          )}
           <Text style={styles.summaryLabel}>What the crew will read</Text>
           <Text style={styles.summary}>{issue.summary}</Text>
           {decision.engine === 'demo' && <Text style={styles.demo}>Demo analysis: the server has no Gemini key yet.</Text>}

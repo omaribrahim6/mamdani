@@ -7,6 +7,7 @@ import { base64ToBytes, utf8 } from './pcm';
 
 export interface LiveReply {
   text: string; // what Mamdani said (output transcription)
+  question: string; // what the resident said that he's answering
   audio: Uint8Array[]; // his native audio, 24 kHz int16, used only if our voice service is unavailable
 }
 
@@ -137,9 +138,10 @@ export class LiveClient {
       this.turnAudio = [];
     }
     if (sc.turnComplete) {
-      if (this.heard.trim()) this.log.push({ who: 'resident', text: this.heard.trim(), at: Date.now() });
+      const question = this.heard.trim();
+      if (question) this.log.push({ who: 'resident', text: question, at: Date.now() });
       this.heard = '';
-      const reply = { text: this.turnText.trim(), audio: this.turnAudio };
+      const reply = { text: this.turnText.trim(), question, audio: this.turnAudio };
       this.turnText = '';
       this.turnAudio = [];
       if (reply.text) this.log.push({ who: 'mamdani', text: reply.text, at: Date.now() });

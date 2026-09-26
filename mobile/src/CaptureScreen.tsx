@@ -11,7 +11,7 @@ import { PortraitStage } from '../../components/mayor/portrait';
 import { MayorStage } from '../../components/mayor/stage';
 import { category } from '../../lib/categories';
 import type { CharacterDecision, CharacterOutfit, Mood, ReportDecision } from '../../lib/types';
-import { newSessionId, submitReport, type Media } from './api';
+import { newSessionId, submitReport, verifyAnswer, type Media } from './api';
 import { flow, framesOpen, initialFlow, liveMaySpeak, mamdaniMode, micOpen, showsSnapshot, type FlowState } from './flow/machine';
 import { GLHost } from './GLHost';
 import { LiveClient } from './live/client';
@@ -64,6 +64,8 @@ export function CaptureScreen() {
   const state = f.state;
   const stateRef = useRef<FlowState>(state);
   stateRef.current = state;
+  const decisionRef = useRef(f.decision);
+  decisionRef.current = f.decision;
 
   // one Mamdani, two framings: his window (portrait) and the photo (scene)
   const portrait = useRef<PortraitStage | null>(null);
@@ -112,10 +114,20 @@ export function CaptureScreen() {
   // ── Live session ──
   useEffect(() => {
     live.onStatus = setLiveStatus;
-    live.onReply = (r) => {
+    live.onReply = async (r) => {
       const s = stateRef.current;
       // connected ≠ allowed to talk: outside these states the orchestrator owns Mamdani
       if (!liveMaySpeak(s) || talkingRef.current || !r.text) return;
+      const issueId = decisionRef.current?.issue.id;
+      if (s === 'LIVE_CONVERSATION' && issueId) {
+        // about a filed report, the city's record is the truth: check before he says it
+        talkingRef.current = true;
+        const v = await verifyAnswer(issueId, r.text, r.question);
+        talkingRef.current = false;
+        if (stateRef.current !== 'LIVE_CONVERSATION') return;
+        void speak(v.answer, 'scene', v.grounded ? r.audio : undefined);
+        return;
+      }
       void speak(r.text, mamdaniMode(s) === 'SCENE' ? 'scene' : 'portrait', r.audio);
     };
     void live.start();
