@@ -1,32 +1,57 @@
-import { Camera, ChevronRight, MapPin } from 'lucide-react';
-import type { ReportViewModel } from '../types';
+import { Accessibility, ChevronRight, MapPin, Users } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import type { ApiIssue } from '../data/api';
+import { category } from '../data/categories';
+import { ago, STATUS_LABEL, ticketId, tier, urgency } from '../data/view';
+import { useStages } from '../gl/GLProvider';
 
 interface ReportCardProps {
-  report: ReportViewModel;
+  issue: ApiIssue;
+  now: number;
   selected: boolean;
-  compact: boolean;
   onSelect: () => void;
+  cardRef?: (el: HTMLButtonElement | null) => void;
 }
 
-export function ReportCard({ report, selected, compact, onSelect }: ReportCardProps) {
+export function ReportCard({ issue, now, selected, onSelect, cardRef }: ReportCardProps) {
+  const { fx } = useStages();
+  const el = useRef<HTMLButtonElement>(null);
+  const cat = category(issue.category);
+  const t = tier(issue);
+  const u = urgency(issue, now);
+
+  useEffect(() => {
+    if (!fx || !el.current) return;
+    return fx.frame(el.current, cat.color, u);
+  }, [fx, cat.color, u]);
+
   return (
     <button
+      ref={(n) => { el.current = n; cardRef?.(n); }}
       type="button"
-      className={`report-card${selected ? ' is-selected' : ''}${compact ? ' is-compact' : ''}`}
+      className={`report-card tier-${t.toLowerCase()}${selected ? ' is-selected' : ''}`}
+      style={{ ['--tone' as string]: cat.color }}
       onClick={onSelect}
       aria-pressed={selected}
-      aria-label={`Open report ${report.id}: ${report.title}`}
+      aria-label={`Open ${ticketId(issue)}: ${issue.title}`}
+      data-issue={issue.id}
     >
+      <span className="card-stencil" aria-hidden="true">{cat.stencil}</span>
       <span className="card-topline">
-        <span className={`priority-tag priority-${report.priority.toLowerCase()}`}>{report.priority}</span>
-        <span className="report-id">{report.id}</span>
+        <span className={`priority-tag priority-${t.toLowerCase()}`}>{t}</span>
+        <span className="card-score" title="Priority score">{issue.priority}</span>
+        <span className="report-id">{ticketId(issue)}</span>
       </span>
-      <span className="card-title">{report.title}</span>
-      <span className="card-address"><MapPin size={14} />{report.address}</span>
+      <span className="card-title">{issue.title}</span>
+      <span className="card-address"><MapPin size={13} />{issue.address}</span>
       <span className="card-footer">
-        <span><b>{report.category}</b><small>{report.status}</small></span>
-        <span className="card-time">{report.reportedAt}<small><Camera size={13} /> {report.media.length || 'No'} {report.media.length === 1 ? 'photo' : 'photos'}</small></span>
-        <ChevronRight className="card-arrow" size={18} aria-hidden="true" />
+        <span className="card-status">{STATUS_LABEL[issue.status]}</span>
+        <span className="card-meta">
+          {issue.accessibility.impact === 'critical' && <Accessibility size={13} aria-label="Accessibility barrier" />}
+          <span><Users size={13} /> {issue.reports}</span>
+          <span>{ago(issue.lastReportedAt, now)}</span>
+        </span>
+        <ChevronRight className="card-arrow" size={16} aria-hidden="true" />
       </span>
     </button>
   );

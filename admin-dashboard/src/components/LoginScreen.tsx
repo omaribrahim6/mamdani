@@ -25,12 +25,12 @@ export function LoginScreen() {
             <div className="preview-map">
               <div className="preview-streets"><i /><i /><i /><i /></div>
               <span className="preview-pin"><MapPin size={19} /></span>
-              <div className="map-caption"><span>Live location</span><strong>43.6496, −79.4349</strong></div>
+              <div className="map-caption"><span>Live location</span><strong>45.4224, −75.6896</strong></div>
             </div>
             <div className="preview-report">
-              <div><span className="priority-tag priority-urgent">Urgent</span><small>CW-2418</small></div>
-              <h2>Sidewalk uplift blocking curb access</h2>
-              <p>Dundas St W & Gladstone Ave</p>
+              <div><span className="priority-tag priority-urgent">Urgent</span><small>OTT-1832</small></div>
+              <h2>Heaved slab blocks the sidewalk</h2>
+              <p>225 Laurier Ave W, Centretown</p>
               <footer><span>Accessibility</span><span><Camera size={14} /> 2 photos</span></footer>
             </div>
           </div>

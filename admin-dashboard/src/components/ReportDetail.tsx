@@ -1,68 +1,117 @@
-import { ArrowLeft, CameraOff, Map as MapIcon, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import type { ReportViewModel } from '../types';
+import { ArrowLeft, Ban, Check, HardHat, Map as MapIcon, Image as ImageIcon, Play, Users, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { mediaUrl, WRITES_ENABLED, type ApiIssue, type Status } from '../data/api';
+import { category } from '../data/categories';
+import { ago, clock, STATUS_LABEL, ticketId, tier } from '../data/view';
+import { EvidenceCanvas, type Evidence } from '../gl/evidence';
+import { useStages } from '../gl/GLProvider';
 import { ReportMap } from './ReportMap';
 
 interface ReportDetailProps {
-  report: ReportViewModel;
+  issue: ApiIssue;
+  now: number;
   onClose: () => void;
+  onStatus: (status: Status, note: string, burn: boolean) => void;
+  onSimulateConfirm: () => void;
 }
 
-export function ReportDetail({ report, onClose }: ReportDetailProps) {
-  const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
-  const [failedMedia, setFailedMedia] = useState<string[]>([]);
-  const activeMedia = report.media.find((media) => media.id === activeMediaId);
+export function ReportDetail({ issue, now, onClose, onStatus, onSimulateConfirm }: ReportDetailProps) {
+  const { back } = useStages();
+  const photo = mediaUrl(issue.mediaId);
+  const [view, setView] = useState<'photo' | 'map'>(photo ? 'photo' : 'map');
+  const host = useRef<HTMLDivElement>(null);
+  const scroll = useRef<HTMLDivElement>(null);
+  const evidence = useRef<Evidence | null>(null);
+  const cat = category(issue.category);
 
+  useEffect(() => { setView(photo ? 'photo' : 'map'); }, [issue.id, photo]);
+
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const boxKey = issue.box ? issue.box.join(",") : "";
   useEffect(() => {
-    setActiveMediaId(null);
-    setFailedMedia([]);
-  }, [report.id]);
+    if (!back || !host.current || !canvas.current || view !== 'photo') return;
+    const ec = new EvidenceCanvas(host.current, canvas.current);
+    evidence.current = ec.view;
+    ec.view.show(photo, boxKey ? (boxKey.split(",").map(Number) as [number, number, number, number]) : null, cat.color);
+    return () => { ec.dispose(); evidence.current = null; };
+  }, [back, view, issue.id, photo, boxKey, cat.color]);
+
+
+  const act = (status: Status, note: string, burn = false) => onStatus(status, note, burn);
+  const t = tier(issue);
 
   return (
-    <article className="report-detail" aria-labelledby="detail-title">
+    <article className="report-detail" aria-labelledby="detail-title" style={{ ['--tone' as string]: cat.color }}>
       <header className="detail-header">
-        <button type="button" className="back-button" onClick={onClose}><ArrowLeft size={17} /> Back to reports</button>
-        <div className="detail-id"><span className={`priority-dot priority-${report.priority.toLowerCase()}`} />{report.id}</div>
+        <button type="button" className="back-button" onClick={onClose}><ArrowLeft size={16} /> Queue</button>
+        <div className="detail-id"><span className={`priority-dot priority-${t.toLowerCase()}`} />{ticketId(issue)}<small>priority {issue.priority}</small></div>
         <button type="button" className="close-button" onClick={onClose} aria-label="Close report detail"><X size={18} /></button>
       </header>
 
-      <div className="detail-scroll">
-        <section className="viewer-layout" aria-label="Report location and media">
+      <div className="detail-scroll" ref={scroll}>
+        <section className="viewer-layout" aria-label="Evidence and location">
           <div className="main-viewer">
-            {activeMedia ? (
-              failedMedia.includes(activeMedia.id) ? (
-                <div className="photo-fallback" role="status"><CameraOff size={28} /><strong>Photo unavailable</strong><p>The report remains available without this image.</p></div>
-              ) : (
-                <img src={activeMedia.imageUrl} alt={activeMedia.alt} onError={() => setFailedMedia((items) => [...items, activeMedia.id])} />
-              )
-            ) : <ReportMap coordinates={report.coordinates} label={report.address} />}
-            <span className="viewer-label">{activeMedia ? 'Field photo' : '3D location'}</span>
+            {view === 'photo' && photo ? (
+              <div ref={host} className="evidence-host" role="img" aria-label={`Resident photo: ${issue.title}. Gemini marked the problem area.`}>
+                {back ? <canvas ref={canvas} className="evidence-canvas" /> : <img src={photo} alt="" />}
+                <span className="evidence-stencil" style={{ color: cat.color }}>{cat.stencil}</span>
+              </div>
+            ) : (
+              <ReportMap coordinates={[issue.lng, issue.lat]} label={issue.address} color={cat.color} />
+            )}
+            <span className="viewer-label">{view === 'photo' ? 'Evidence · faces and plates blurred' : '3D location'}</span>
           </div>
-
-          <div className="media-rail" aria-label="Choose map or photo">
-            <button type="button" className={!activeMedia ? 'media-option active' : 'media-option'} onClick={() => setActiveMediaId(null)} aria-pressed={!activeMedia} aria-label="Show map">
-              <MapIcon size={21} /><span>Map</span>
-            </button>
-            {report.media.map((media, index) => (
-              <button type="button" key={media.id} className={activeMediaId === media.id ? 'media-option active' : 'media-option'} onClick={() => setActiveMediaId(media.id)} aria-pressed={activeMediaId === media.id} aria-label={`Show photo ${index + 1}: ${media.alt}`}>
-                {failedMedia.includes(media.id) ? <CameraOff size={19} /> : <img src={media.imageUrl} alt="" onError={() => setFailedMedia((items) => [...items, media.id])} />}
-                <span>Photo {index + 1}</span>
+          <div className="media-rail" aria-label="Choose photo or map">
+            {photo && (
+              <button type="button" className={view === 'photo' ? 'media-option active' : 'media-option'} onClick={() => setView('photo')} aria-pressed={view === 'photo'}>
+                <ImageIcon size={19} /><span>Photo</span>
               </button>
-            ))}
+            )}
+            <button type="button" className={view === 'map' ? 'media-option active' : 'media-option'} onClick={() => setView('map')} aria-pressed={view === 'map'}>
+              <MapIcon size={19} /><span>Map</span>
+            </button>
           </div>
         </section>
 
         <section className="detail-content">
           <div className="detail-title-block">
-            <div className="detail-badges"><span>{report.category}</span><span>{report.status}</span></div>
-            <h2 id="detail-title">{report.title}</h2>
-            <p className="detail-address">{report.address}</p>
+            <div className="detail-badges"><span className="badge-tone">{cat.label}</span><span>{STATUS_LABEL[issue.status]}</span>{issue.accessibility.barrier && <span className="badge-a11y">Accessibility barrier</span>}</div>
+            <h2 id="detail-title">{issue.title}</h2>
+            <p className="detail-address">{issue.address}</p>
           </div>
+
+          <div className="action-bar" role="group" aria-label="Update this ticket">
+            {issue.status === 'new' && <button type="button" onClick={() => act('assigned', 'Crew assigned')}><HardHat size={15} /> Assign crew</button>}
+            {issue.status === 'assigned' && <button type="button" onClick={() => act('in_progress', 'Crew on site')}><Play size={15} /> Crew on site</button>}
+            {issue.status !== 'resolved' && <button type="button" className="primary" onClick={() => act('resolved', 'Fixed and verified', true)}><Check size={15} /> Mark resolved</button>}
+            {issue.status !== 'resolved' && <button type="button" className="ghost" onClick={() => act('resolved', 'Closed: false positive', true)}><Ban size={15} /> False positive</button>}
+            {issue.status === 'resolved' && <button type="button" onClick={() => act('assigned', 'Reopened')}><HardHat size={15} /> Reopen</button>}
+            <button type="button" className="ghost" onClick={onSimulateConfirm} title="Demo: another resident reports the same problem"><Users size={15} /> Simulate duplicate</button>
+          </div>
+          {!WRITES_ENABLED && <p className="preview-note">Preview mode: status changes stay in this browser and are not written to the city's record.</p>}
+
           <div className="report-facts">
-            <div><span>Reported</span><strong>{report.reportedAt}</strong></div>
-            {report.details.map((detail) => <div key={detail.label}><span>{detail.label}</span><strong>{detail.value}</strong></div>)}
+            <div><span>First reported</span><strong>{clock(issue.firstReportedAt)}</strong></div>
+            <div data-reports-target={issue.id}><span>Residents reporting</span><strong>{issue.reports}</strong></div>
+            <div><span>Department</span><strong>{issue.department}</strong></div>
+            <div><span>Last update</span><strong>{ago(issue.updatedAt, now)}</strong></div>
+            {issue.dueAt ? <div><span>City target</span><strong>{clock(issue.dueAt)}</strong></div> : null}
+            {issue.standard ? <div className="fact-wide"><span>Service standard</span><strong><a href={issue.standard.sourceUrl} target="_blank" rel="noreferrer">{issue.standard.text}</a></strong></div> : null}
           </div>
-          <div className="report-narrative"><h3>Report notes</h3><p>{report.summary}</p></div>
+
+          <div className="priority-bars" aria-label="Why this priority">
+            {Object.entries(issue.priorityParts).map(([k, v]) => (
+              <div key={k}><span>{k}</span><i style={{ width: `${Math.min(100, v * 3)}%` }} /><b>{v}</b></div>
+            ))}
+          </div>
+
+          <div className="report-narrative"><h3>What residents saw</h3><p>{issue.summary}</p>
+            {issue.accessibility.notes.length > 0 && <ul>{issue.accessibility.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
+          </div>
+
+          <ol className="event-log">
+            {[...issue.events].reverse().map((e, i) => <li key={i}><time>{clock(e.at)}</time>{e.note}</li>)}
+          </ol>
         </section>
       </div>
     </article>
