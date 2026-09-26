@@ -17,6 +17,16 @@ export interface PerformOpts {
   onThunk?: () => void;
 }
 
+/** Where the stage draws. A plain <canvas> on the web; on a phone, expo-gl's context and a canvas stand-in. */
+export interface StageSurface {
+  canvas: HTMLCanvasElement;
+  context?: WebGLRenderingContext | WebGL2RenderingContext;
+  pixelRatio?: number;
+  size?: () => { w: number; h: number };
+  /** called after each render — expo-gl needs gl.endFrameEXP() to show the frame */
+  present?: () => void;
+}
+
 export class MayorStage {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
@@ -36,9 +46,15 @@ export class MayorStage {
   private analyser: AnalyserNode | null = null;
   private level = new Uint8Array(64);
 
-  constructor(private canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  private surface: StageSurface;
+
+  constructor(target: HTMLCanvasElement | StageSurface) {
+    this.surface = 'canvas' in target ? target : { canvas: target };
+    const { canvas, context } = this.surface;
+    this.renderer = new THREE.WebGLRenderer({ canvas, context, alpha: true, antialias: true, powerPreference: 'high-performance' });
+    const dpr = this.surface.pixelRatio ?? (typeof devicePixelRatio === 'number' ? devicePixelRatio : 1);
+    this.renderer.setPixelRatio(Math.min(dpr, 2));
+    this.renderer.setClearColor(0x000000, 0);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -73,8 +89,9 @@ export class MayorStage {
   }
 
   resize() {
-    const w = this.canvas.clientWidth || 1;
-    const h = this.canvas.clientHeight || 1;
+    const size = this.surface.size?.();
+    const w = (size ? size.w : this.surface.canvas.clientWidth) || 1;
+    const h = (size ? size.h : this.surface.canvas.clientHeight) || 1;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -340,6 +357,7 @@ export class MayorStage {
       }
     }
     this.renderer.render(this.scene, this.camera);
+    this.surface.present?.();
   }
 
   dispose() {
