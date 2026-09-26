@@ -44,7 +44,8 @@ const MOOD: Record<CharacterDecision['emotion'], Mood> = {
   CHEERFUL: 'impressed',
 };
 const PROCESSING_LINES = ['Mamdani’s getting ready…', 'Looking over your photo…', 'Checking nearby reports…'];
-const WINDOW = 124; // Mamdani's round window
+const WINDOW = 156; // Mamdani's round window
+const CONTROLS_PAD = 14; // above and below the row with his window
 const ACCENT = C.hardhat;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -100,7 +101,8 @@ function factsOf(d: ReportDecision) {
 export function CaptureScreen() {
   const insets = useSafeAreaInsets();
   const { width: W, height: H } = useWindowDimensions();
-  const viewH = Math.round(Math.min(H * 0.7, H - 250 - insets.bottom));
+  // the camera gets everything above the one row of controls
+  const viewH = Math.round(H - (WINDOW + 8) - CONTROLS_PAD - Math.max(CONTROLS_PAD, insets.bottom));
   const where = useWhere();
   const [camPerm, requestCam] = useCameraPermissions();
   const cam = useRef<CameraView>(null);
@@ -713,23 +715,6 @@ export function CaptureScreen() {
   const camAllowed = !!camPerm?.granted;
   const liveDown = liveStatus === 'unavailable' || micOk === false;
 
-  const caption = said && (DEMO || liveMaySpeak(state)) ? said : null;
-  const status =
-    line ??
-    (DEMO
-      ? null
-      : state === 'LIVE_IDLE'
-      ? liveStatus === 'connecting' || liveStatus === 'off'
-        ? 'Mamdani is on his way…'
-        : liveDown
-          ? 'Mamdani can’t hear you right now. Tap the camera to report.'
-          : muted
-            ? 'You’re muted.'
-            : null
-      : state === 'LIVE_CONVERSATION'
-        ? 'Ask Mamdani anything about this report.'
-        : null);
-
   return (
     <View style={styles.root}>
       {/* ── the world ── */}
@@ -788,6 +773,25 @@ export function CaptureScreen() {
           style={[StyleSheet.absoluteFill, { backgroundColor: '#fff', opacity: flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] }) }]}
         />
 
+        {/* once it's filed, tapping the photo brings him back for the next report */}
+        {filed && (
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => dispatch({ type: 'NEW_REPORT' })} accessibilityRole="button" accessibilityLabel="New report" />
+        )}
+
+        {/* no text over the camera: his voice says it. Only the answers to "which one?" to tap */}
+        {state === 'REPORT_CLARIFYING' && !!f.clarify?.options.length && (
+          <View style={styles.lineWrap} pointerEvents="box-none">
+            <LinearGradient pointerEvents="none" colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.5)']} style={StyleSheet.absoluteFill} />
+            <View style={styles.options}>
+              {f.clarify.options.map((o) => (
+                <Pressable key={o} style={styles.option} onPress={() => dispatch({ type: 'ANSWERED', answer: o })} accessibilityRole="button">
+                  <Text style={styles.optionText}>{o}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
         {(state === 'LIVE_IDLE' || state === 'CAPTURING') && (
           <View style={[styles.where, { top: insets.top + 10 }]} accessibilityLiveRegion="polite">
             <PinIcon size={13} />
@@ -799,28 +803,7 @@ export function CaptureScreen() {
       </Animated.View>
 
       {/* ── the control surface ── */}
-      <View style={[styles.controls, { paddingBottom: Math.max(14, insets.bottom) }]}>
-        <View style={styles.lineWrap}>
-          {caption ? (
-            <Text style={styles.caption} numberOfLines={3} accessibilityLiveRegion="polite">
-              {caption}
-            </Text>
-          ) : (
-            <Text style={[styles.line, !line && styles.hint]} numberOfLines={2} accessibilityLiveRegion="polite">
-              {status ?? ''}
-            </Text>
-          )}
-          {state === 'REPORT_CLARIFYING' && f.clarify && (
-            <View style={styles.options}>
-              {f.clarify.options.map((o) => (
-                <Pressable key={o} style={styles.option} onPress={() => dispatch({ type: 'ANSWERED', answer: o })} accessibilityRole="button">
-                  <Text style={styles.optionText}>{o}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
-
+      <View style={[styles.controls, { paddingBottom: Math.max(CONTROLS_PAD, insets.bottom) }]}>
         <View style={styles.row}>
           <View style={styles.side}>
             {filed && d ? (
@@ -842,27 +825,21 @@ export function CaptureScreen() {
           </View>
 
           <View style={styles.center}>
-            {filed ? (
-              <Pressable style={styles.newReport} onPress={() => dispatch({ type: 'NEW_REPORT' })} accessibilityRole="button" accessibilityLabel="New report">
-                <CameraGlyph />
-              </Pressable>
-            ) : (
-              <PortraitWindow
-                sx={win.sx}
-                sy={win.sy}
-                hidden={mode === 'SCENE'}
-                listening={micOpen(state) && hearing && !speaking && !muted}
-                live={liveStatus === 'live'}
-                onStage={(s) => {
-                  portrait.current = s;
-                  s?.show('suit');
-                }}
-              />
-            )}
+            <PortraitWindow
+              sx={win.sx}
+              sy={win.sy}
+              hidden={mode === 'SCENE'}
+              listening={micOpen(state) && hearing && !speaking && !muted}
+              live={liveStatus === 'live'}
+              onStage={(s) => {
+                portrait.current = s;
+                s?.show('suit');
+              }}
+            />
           </View>
 
           <View style={[styles.side, { alignItems: 'flex-end' }]}>
-            {liveDown && state === 'LIVE_IDLE' ? (
+            {!DEMO && liveDown && state === 'LIVE_IDLE' ? (
               <Pressable style={styles.newReport} onPress={manualCapture} accessibilityRole="button" accessibilityLabel="Take the photo">
                 <CameraGlyph />
               </Pressable>
@@ -907,7 +884,7 @@ function targetFor(d: ReportDecision, photo: Media, w: number, h: number) {
   const x = Math.max(0.25, Math.min(0.85, (b.x + b.w / 2) / w));
   // overhead problems (a dead streetlight): he stands on the ground below and looks up
   if (d.character.animation === 'LOOK_UP') return { x, y: 0.8 };
-  return { x, y: Math.max(0.45, Math.min(0.9, (b.y + b.h * 0.85) / h)) };
+  return { x, y: Math.max(0.45, Math.min(0.84, (b.y + b.h * 0.85) / h)) };
 }
 
 // ── pieces ──
@@ -1075,12 +1052,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.38)',
   },
   whereText: { fontFamily: F.uiSemi, fontSize: 13, color: '#fff', paddingTop: 2, flexShrink: 1 },
-  controls: { flex: 1, justifyContent: 'space-between', paddingTop: 14 },
-  lineWrap: { minHeight: 64, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center' },
-  caption: { fontFamily: F.uiBold, fontSize: 17, lineHeight: 23, color: '#fff', textAlign: 'center' },
-  line: { fontFamily: F.uiSemi, fontSize: 15, lineHeight: 21, color: 'rgba(255,255,255,0.9)', textAlign: 'center' },
-  hint: { color: 'rgba(255,255,255,0.5)' },
-  options: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 10 },
+  controls: { flex: 1, justifyContent: 'flex-start', paddingTop: CONTROLS_PAD },
+  lineWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 40, paddingBottom: 18, paddingHorizontal: 24, alignItems: 'center' },
+  options: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
   option: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.14)' },
   optionText: { fontFamily: F.uiBold, fontSize: T.sm, color: '#fff', paddingTop: 2 },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 },
@@ -1089,7 +1063,7 @@ const styles = StyleSheet.create({
   window: { width: WINDOW, height: WINDOW, borderRadius: WINDOW / 2, padding: 3, backgroundColor: 'rgba(255,255,255,0.14)' },
   windowListening: { backgroundColor: ACCENT },
   windowInner: { flex: 1, borderRadius: WINDOW / 2, overflow: 'hidden' },
-  liveDot: { position: 'absolute', right: 11, top: 11, width: 12, height: 12, borderRadius: 6, backgroundColor: ACCENT, borderWidth: 2, borderColor: '#000' },
+  liveDot: { position: 'absolute', right: 15, top: 15, width: 12, height: 12, borderRadius: 6, backgroundColor: ACCENT, borderWidth: 2, borderColor: '#000' },
   round: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
   roundOn: { backgroundColor: '#fff' },
   newReport: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
