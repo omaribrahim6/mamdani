@@ -422,6 +422,7 @@ export function CaptureScreen() {
       },
       next: () => dispatch({ type: 'NEW_REPORT' }),
       state: () => stateRef.current,
+      stages: () => ({ portrait: portrait.current, scene: scene.current }),
     };
   }, [where.lat, where.lng]);
 
@@ -659,9 +660,11 @@ function Confirmation({ decision }: { decision: ReportDecision }) {
         <Text style={styles.confTitle}>Reported</Text>
       </View>
       <Text style={styles.confBody} numberOfLines={1}>
-        {category(i.type).label}, {severityWord(i.severity).toLowerCase()}
+        {category(i.type).label}
       </Text>
-      <Text style={styles.confMeta}>Report #{i.id}</Text>
+      <Text style={styles.confMeta} numberOfLines={1}>
+        {severityWord(i.severity)}, #{i.id}
+      </Text>
     </Animated.View>
   );
 }
