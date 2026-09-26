@@ -7,7 +7,7 @@ import { Animated, Easing, Image, Linking, Platform, Pressable, StyleSheet, Text
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import type { MayorOutfit } from '../../components/mayor/build';
-import { PortraitStage } from '../../components/mayor/portrait';
+import { PortraitStage, type SpeechCue } from '../../components/mayor/portrait';
 import { MayorStage } from '../../components/mayor/stage';
 import { category } from '../../lib/categories';
 import type { CharacterDecision, CharacterOutfit, Mood, ReportDecision } from '../../lib/types';
@@ -56,6 +56,20 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const DEMO = true;
 const DEMO_LINE = 'Worry not, young citizen! My finest engineers will fix this ASAP. I’ll send it over!';
 const DEMO_EXIT_AT = 3500; // into the 5.1 s line, on "ASAP": he's on his way as he says "I'll send it over!"
+// His body language for the demo line, timed to its stressed syllables (measured from demo-line.wav:
+// WOR 0.12 · NOT 0.46 · CIT 0.97 · MY 1.62 · FIN 1.92 · NEERS 2.58 · FIX 3.21 · A-SAP 3.47).
+// Each stroke starts ~0.1–0.3 s early so it lands on the syllable, the way animators lead a word.
+const DEMO_CUES: SpeechCue[] = [
+  { at: 0, gesture: 'reassure', look: 'you', expr: 'CHEERFUL' }, // "Worry not…" — I've got this
+  { at: 0.36, shake: true }, // "…NOT"
+  { at: 0.86, nod: 0.09 }, // "young CITizen!"
+  { at: 1.3, gesture: 'proud', nod: -0.07 }, // "MY finest…": hand to chest, chin up
+  { at: 1.84, nod: 0.07 }, // "FINest"
+  { at: 2.48, nod: 0.05 }, // "engiNEERS"
+  { at: 2.72, gesture: 'pointFeed', look: 'feed', expr: 'DETERMINED' }, // "will FIX this": at the problem
+  { at: 3.1, nod: 0.11 }, // "FIX"
+  { at: 3.38, nod: 0.07 }, // "A-SAP", and out of the window on DEMO_EXIT_AT
+];
 const DEMO_TRIGGER = /fix (this|it)\b/i;
 const demoDecision = (address: string): ReportDecision => ({
   reportId: 'report_1849',
@@ -402,6 +416,7 @@ export function CaptureScreen() {
     const shot = photoOverride ? Promise.resolve(photoOverride) : takeEvidence();
     const clip = demoClip.current;
     if (!(clip && audio.playClip(clip))) void sayOnDevice(DEMO_LINE);
+    portrait.current?.speak(DEMO_CUES);
     let photo: Media;
     try {
       photo = await shot;

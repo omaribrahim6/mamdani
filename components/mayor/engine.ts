@@ -70,6 +70,8 @@ export class RigStage {
   private levelSlow = 0;
   private beat = 0;
   private beatSide = 1;
+  /** how much the automatic speech beats move the head (a scripted line turns them down) */
+  protected beatGain = 1;
   private lastBeat = 0;
   private feeling: Expression = 'NEUTRAL';
   private posture = [new SecondOrder(1.4, 0.8, 0), new SecondOrder(1.4, 0.8, 0), new SecondOrder(1.4, 0.8, 0)];
@@ -322,8 +324,8 @@ export class RigStage {
       this.beatSide = Math.random() < 0.5 ? -1 : 1;
     }
     this.beat *= Math.exp(-dt / 0.17);
-    rig.head.rotation.x += this.beat * 0.07;
-    rig.head.rotation.y += this.beat * 0.03 * this.beatSide;
+    rig.head.rotation.x += this.beat * 0.07 * this.beatGain;
+    rig.head.rotation.y += this.beat * 0.03 * this.beatSide * this.beatGain;
 
     // the emotion's posture, eased in
     const look = EXPRESSION[this.feeling];

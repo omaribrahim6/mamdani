@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { MayorOutfit } from './build';
 import { ease, lerp, RigStage, type StageSurface } from './engine';
 import { createMayor } from './models';
+import type { Expression } from './face';
 
 // Mamdani in his little round window: head and shoulders, alive while the camera is up.
 // He watches the feed, glances at the shutter when you touch it, thinks while the report is
@@ -9,6 +10,34 @@ import { createMayor } from './models';
 
 export type Gaze = 'feed' | 'shutter' | 'you' | 'away';
 export type Behavior = 'watch' | 'listen' | 'think' | 'talk';
+
+/** Hand poses he can strike while he talks, in the rig's control angles (see stage.ts). */
+export type Gesture = 'reassure' | 'proud' | 'pointFeed' | 'rest';
+/**
+ * One beat of a scripted line, in seconds from when the audio starts. Strokes should land a little
+ * before the stressed syllable they go with (the gesture leads the word, as animators time it).
+ */
+export interface SpeechCue {
+  at: number;
+  gesture?: Gesture;
+  /** head nod, radians (+ = down); negative lifts the chin */
+  nod?: number;
+  /** a quick "no" shake */
+  shake?: boolean;
+  look?: Gaze;
+  expr?: Expression;
+}
+
+type Pose = { armR: [number, number, number]; foreR: [number, number, number]; armL: [number, number, number]; foreL: [number, number, number] };
+const POSE: Record<Gesture, Pose> = {
+  // "worry not": right hand up in front of the chest, palm to you
+  reassure: { armR: [-1.1, 0, -0.45], foreR: [-1.45, 0, 0.1], armL: [0, 0, 0.12], foreL: [0, 0, 0] },
+  // "my finest engineers": right hand to his chest, left hand out, presenting
+  proud: { armR: [-0.3, 0, 0.35], foreR: [-1.55, 0, 0.75], armL: [-0.75, 0, 0.5], foreL: [-0.55, 0, -0.25] },
+  // "fix this": points up and out at the camera feed (screen right is his left)
+  pointFeed: { armR: [0, 0, -0.12], foreR: [0, 0, 0], armL: [-1.85, 0, 0.5], foreL: [-0.12, 0, 0] },
+  rest: { armR: [0, 0, -0.12], foreR: [0, 0, 0], armL: [0, 0, 0.12], foreL: [0, 0, 0] },
+};
 
 // head pitch (+ = down) and yaw (+ = toward screen right) for each place he can look.
 // The window sits bottom-left, so the camera feed is up and to his right.
@@ -28,6 +57,13 @@ export class PortraitStage extends RigStage {
   private saccade = { at: 0, dx: 0, dy: 0 };
   private present = false; // false while he's out of the window
   private outfit: MayorOutfit = 'suit';
+  // a scripted line: cues fire on the stage's own clock, so they stay locked to the audio's start
+  private cues: SpeechCue[] = [];
+  private cueClock = 0;
+  private gestureToken = 0;
+  private nodAmp = 0;
+  private nodT = 9;
+  private shakeT = 9;
 
   constructor(target: HTMLCanvasElement | StageSurface) {
     super(target, { fov: 26, shadows: false });
@@ -53,11 +89,51 @@ export class PortraitStage extends RigStage {
   }
 
   act(b: Behavior) {
+    // a scripted line owns his looks and expression while it runs
+    if (b === 'talk' && this.cues.length) {
+      this.behavior = b;
+      this.speaking(true);
+      return;
+    }
     this.behavior = b;
     this.speaking(b === 'talk');
     this.expression(b === 'listen' ? 'LISTENING' : b === 'think' ? 'THINKING' : 'NEUTRAL');
     if (b === 'talk') this.look('you');
     else if (b === 'watch' || b === 'listen') this.look('feed');
+  }
+
+  /**
+   * Perform a line whose audio starts now: hand gestures, nods and looks timed to its words.
+   * The mouth still follows the audio itself; this is the body language around it.
+   */
+  speak(cues: SpeechCue[]) {
+    this.act('talk');
+    this.cues = [...cues].sort((a, b) => a.at - b.at);
+    this.cueClock = 0;
+    this.beatGain = 0.4; // the script carries the emphasis; keep the automatic nods small
+  }
+
+  /** Move the arms into a gesture; a newer gesture takes over mid-way. */
+  gesture(g: Gesture, sec = 0.3) {
+    const rig = this.rig;
+    if (!rig) return;
+    const token = ++this.gestureToken;
+    const from = [rig.armR, rig.forearmR, rig.armL, rig.forearmL].map((c) => c.rotation.clone());
+    const to = POSE[g];
+    const targets = [to.armR, to.foreR, to.armL, to.foreL];
+    void this.tween(sec, (t) => {
+      if (token !== this.gestureToken || !this.rig) return;
+      const e = ease(t);
+      [rig.armR, rig.forearmR, rig.armL, rig.forearmL].forEach((c, i) =>
+        c.rotation.set(lerp(from[i].x, targets[i][0], e), lerp(from[i].y, targets[i][1], e), lerp(from[i].z, targets[i][2], e)),
+      );
+    });
+  }
+
+  private stopScript() {
+    this.cues = [];
+    this.gestureToken++;
+    this.beatGain = 1;
   }
 
   /** Changes into the outfit the job needs, with a little pop, before heading out. */
@@ -78,6 +154,7 @@ export class PortraitStage extends RigStage {
   async exitLeft() {
     const rig = this.rig;
     if (!rig) return;
+    this.stopScript();
     this.look('away');
     await this.wait(0.28);
     this.present = false;
@@ -128,6 +205,27 @@ export class PortraitStage extends RigStage {
     const rig = this.rig;
     if (!rig || !this.present) return;
     const t = now / 1000;
+    // fire the script's cues that are due
+    if (this.cues.length) {
+      this.cueClock += dt;
+      while (this.cues.length && this.cues[0].at <= this.cueClock) {
+        const c = this.cues.shift()!;
+        if (c.gesture) this.gesture(c.gesture);
+        if (c.nod) {
+          this.nodAmp = c.nod;
+          this.nodT = 0;
+        }
+        if (c.shake) this.shakeT = 0;
+        if (c.look) this.look(c.look, 1200);
+        if (c.expr) this.expression(c.expr);
+      }
+      if (!this.cues.length) this.beatGain = 1;
+    }
+    this.nodT += dt;
+    this.shakeT += dt;
+    // a nod: down and back up in 0.35 s; a shake: two quick turns, dying away
+    const cueNod = this.nodT < 0.35 ? this.nodAmp * Math.sin((this.nodT / 0.35) * Math.PI) : 0;
+    const cueShake = this.shakeT < 0.45 ? Math.sin((this.shakeT / 0.45) * Math.PI * 3) * 0.14 * (1 - this.shakeT / 0.45) : 0;
     if (this.glanceUntil && now > this.glanceUntil) {
       this.glanceUntil = 0;
       this.gaze = this.behavior === 'talk' ? 'you' : 'feed';
@@ -172,7 +270,7 @@ export class PortraitStage extends RigStage {
     // The generated model's eyes are painted on, so all of his looking is done by the head:
     // it turns further, and the shoulders follow more, than the procedural one's.
     const g = rig.headAnchor ? 1.05 : 1;
-    rig.head.rotation.set((this.pitch + nod) * g, this.yaw * g, (0.08 + tilt) * (rig.headAnchor ? 1.2 : 1));
+    rig.head.rotation.set((this.pitch + nod + cueNod) * g, (this.yaw + cueShake) * g, (0.08 + tilt) * (rig.headAnchor ? 1.2 : 1));
     // the body turns a little with the head
     rig.body.rotation.y = this.yaw * (rig.headAnchor ? 0.35 : 0.25);
     rig.body.position.y = Math.sin(t * 2.2) * 0.006;
