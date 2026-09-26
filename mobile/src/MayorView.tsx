@@ -1,11 +1,11 @@
 import { GLView, type ExpoWebGLRenderingContext } from 'expo-gl';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { PixelRatio, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import type { Outfit } from '../../lib/categories';
+import type { MayorOutfit } from '../../components/mayor/build';
 import { MayorStage, type PerformOpts } from '../../components/mayor/stage';
 
 export interface MayorHandle {
-  perform(outfit: Outfit, o: PerformOpts): Promise<void>;
+  perform(outfit: MayorOutfit, o: PerformOpts): Promise<void>;
   speaking(on: boolean): void;
   clear(): void;
   headScreen(): { x: number; y: number } | null;

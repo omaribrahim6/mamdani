@@ -1,7 +1,6 @@
 import * as THREE from 'three';
-import type { Outfit } from '@/lib/categories';
 import type { Mood } from '@/lib/types';
-import { buildMayor, type MayorRig } from './build';
+import { buildMayor, type MayorRig, type MayorOutfit } from './build';
 
 // A transparent 3D layer laid over the resident's photo. The photo's "ground" is a plane at y=0;
 // a point in the photo (where the problem is) is ray-cast onto that plane, so he walks to the
@@ -114,11 +113,13 @@ export class MayorStage {
   }
 
   /** Walk in → inspect → react → plant the flag → face you. Resolves when he's ready to talk. */
-  async perform(outfit: Outfit, o: PerformOpts) {
+  async perform(outfit: MayorOutfit, o: PerformOpts) {
     this.clear();
     const rig = buildMayor(outfit);
     this.rig = rig;
     this.scene.add(rig.root);
+    // The clean suit factory is prop-free; the performance supplies its temporary flag.
+    rig.handR.add(rig.flag);
 
     const flagSpot = this.groundAt(o.target.x, o.target.y);
     // Hold his on-screen size steady (~a quarter of the frame) whether the problem is at your feet
@@ -133,8 +134,13 @@ export class MayorStage {
     rig.root.position.copy(start);
     rig.root.rotation.y = Math.PI / 2; // facing right, walking in
     // carry the flag over the shoulder
+    rig.armL.rotation.set(0, 0, 0.12);
+    rig.forearmL.rotation.set(0, 0, 0);
     rig.armR.rotation.set(-2.3, 0, -0.3);
-    rig.forearmR.rotation.x = -0.4;
+    rig.forearmR.rotation.set(-0.4, 0, 0);
+    rig.flag.rotation.set(Math.PI, 0, 0);
+    rig.flag.position.set(0, 0.48, 0.035);
+    rig.head.rotation.set(0, 0, 0);
 
     if (this.reduced) {
       rig.root.position.copy(stand);
@@ -183,15 +189,18 @@ export class MayorStage {
 
     // turn to camera, hands on hips like the poster
     await this.tween(0.45, (t) => {
-      rig.root.rotation.y = lerp(toFlag, -0.25, ease(t));
+      rig.root.rotation.y = lerp(toFlag, 0.20, ease(t));
       rig.body.rotation.x = lerp(0.35, 0, ease(t));
       rig.head.rotation.x = lerp(0.45, -0.05, ease(t));
-      rig.armR.rotation.set(lerp(-1.1, -0.1, ease(t)), 0, lerp(-0.3, -0.75, ease(t)));
-      rig.forearmR.rotation.x = lerp(-0.4, -1.9, ease(t));
-      rig.forearmR.rotation.z = lerp(0, 0.6, ease(t));
-      rig.armL.rotation.z = lerp(0.12, 0.75, ease(t));
-      rig.forearmL.rotation.x = lerp(0, -1.9, ease(t));
-      rig.forearmL.rotation.z = lerp(0, -0.6, ease(t));
+      rig.head.rotation.y = lerp(0, 0.18, ease(t));
+      rig.head.rotation.z = lerp(0, 0.16, ease(t));
+      rig.armR.rotation.set(lerp(-1.1, -0.10, ease(t)), 0, lerp(-0.3, -0.80, ease(t)));
+      rig.forearmR.rotation.x = lerp(-0.4, -0.34, ease(t));
+      rig.forearmR.rotation.z = lerp(0, 1.50, ease(t));
+      rig.armL.rotation.z = lerp(0.12, 0.80, ease(t));
+      rig.armL.rotation.x = lerp(0, -0.10, ease(t));
+      rig.forearmL.rotation.x = lerp(0, -0.34, ease(t));
+      rig.forearmL.rotation.z = lerp(0, -1.50, ease(t));
     });
     this.idle = 1;
   }
@@ -229,7 +238,7 @@ export class MayorStage {
     } else if (mood === 'impressed') {
       await this.tween(0.8, (t) => {
         rig.body.rotation.x = lerp(0.22, -0.18, Math.sin(t * Math.PI));
-        rig.browL.position.y = rig.browR.position.y = 0.305 + Math.sin(t * Math.PI) * 0.03;
+        rig.browL.position.y = rig.browR.position.y = 0.281 + Math.sin(t * Math.PI) * 0.03;
       });
     } else {
       // confused: head tilt, scratch
@@ -325,7 +334,7 @@ export class MayorStage {
       if (this.idle) {
         const t = now / 1000;
         rig.body.position.y = Math.sin(t * 2.2) * 0.008;
-        rig.head.rotation.z = Math.sin(t * 1.3) * 0.04;
+        rig.head.rotation.z = 0.16 + Math.sin(t * 1.3) * 0.03;
       }
       // mouth follows the voice
       let open = 0;

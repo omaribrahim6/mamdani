@@ -2,10 +2,10 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { MayorStage, type PerformOpts } from './stage';
-import type { Outfit } from '@/lib/categories';
+import type { MayorOutfit } from './build';
 
 export interface MayorHandle {
-  perform(outfit: Outfit, o: PerformOpts): Promise<void>;
+  perform(outfit: MayorOutfit, o: PerformOpts): Promise<void>;
   speaking(on: boolean): void;
   listen(a: AnalyserNode | null): void;
   clear(): void;
