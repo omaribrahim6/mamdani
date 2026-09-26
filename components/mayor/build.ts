@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { FaceWeights } from './face';
 import type { Outfit } from '@/lib/categories';
 import { bake, ellipsoid, mesh, panel, profile, triangles, type Point } from './geometry';
 import { sculptHead } from './head';
@@ -44,6 +45,8 @@ export interface MayorRig {
   makeLids?: () => THREE.Mesh[];
   /** carry the joint controls onto the real skeleton; called every frame before rendering */
   update?: () => void;
+  /** drive the sculpted face (components/mayor/face.ts); rigs without one keep the brow/mouth parts */
+  setFace?: (w: FaceWeights) => void;
 }
 
 const group = (name: string, parent?: THREE.Object3D) => {
