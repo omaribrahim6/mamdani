@@ -247,7 +247,7 @@ export function buildTripoMayor(pack: MrigPack, outfit: MayorOutfit): MayorRig {
   const toHead = (p: THREE.Vector3) => p.clone().applyMatrix4(headInv).applyQuaternion(back);
   const [e1, e2] = pack.face.eyes;
   const eyeGap = pack.face.eyeGap;
-  const mouth = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshStandardMaterial({ color: 0x2a1412, roughness: 0.9 }));
+  const mouth = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshStandardMaterial({ color: 0x4a1a17, roughness: 0.7 }));
   mouth.name = 'speaking-mouth';
   mouth.position.copy(toHead(pack.face.mouth));
   mouth.scale.set(0.01, 0.011, eyeGap * 0.17);
@@ -297,7 +297,8 @@ export function buildTripoMayor(pack: MrigPack, outfit: MayorOutfit): MayorRig {
       // the dark opening behind the lips grows with the jaw
       const base = mouth.userData.base as THREE.Vector3;
       mouth.userData.jaw = w.jawOpen;
-      mouth.scale.set(base.x, base.y * (0.3 + w.jawOpen * 1.9), base.z * (0.75 + w.mouthWide * 0.5 - w.mouthRound * 0.35));
+      // an opening, not a hole: wider than tall, narrowing for "oo", spreading for "ee"
+      mouth.scale.set(base.x, base.y * (0.2 + w.jawOpen * 1.25), base.z * (0.95 + w.jawOpen * 0.35 + w.mouthWide * 0.55 - w.mouthRound * 0.5));
     },
     update() {
       apply(J.spine, body.rotation);

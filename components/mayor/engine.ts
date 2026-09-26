@@ -75,7 +75,7 @@ export class RigStage {
   private posture = [new SecondOrder(1.4, 0.8, 0), new SecondOrder(1.4, 0.8, 0), new SecondOrder(1.4, 0.8, 0)];
   private face = neutralFace();
   private faceSprings = FACE_SHAPES.map((k) =>
-    k.startsWith('brow') ? new SecondOrder(4.5, 0.6, 0) : k === 'smile' ? new SecondOrder(2.5, 0.8, 0) : new SecondOrder(11, 0.85, 0),
+    k.startsWith('brow') || k.startsWith('squint') ? new SecondOrder(4.5, 0.6, 0) : k === 'smile' ? new SecondOrder(2.5, 0.8, 0) : new SecondOrder(11, 0.85, 0),
   );
 
   constructor(target: HTMLCanvasElement | StageSurface, cam: { fov: number; shadows: boolean }) {
@@ -353,6 +353,8 @@ export class RigStage {
       browUp1: clamp((look.browUp1 ?? 0) + this.beat * 0.35),
       browDown0: clamp(look.browDown0 ?? 0),
       browDown1: clamp(look.browDown1 ?? 0),
+      squint0: clamp(look.squint0 ?? 0),
+      squint1: clamp(look.squint1 ?? 0),
     };
     FACE_SHAPES.forEach((k, i) => (this.face[k] = clamp(this.faceSprings[i].update(dt, target[k]))));
     rig.setFace!(this.face);
@@ -372,6 +374,7 @@ export class RigStage {
       closed = t >= 1 ? 0 : Math.sin(t * Math.PI);
       if (t >= 1) this.blinkT = -1;
     }
+
     for (const lid of this.lids) {
       lid.visible = closed > 0.05;
       lid.scale.y = lid.userData.sy * (0.15 + closed * 0.85);
