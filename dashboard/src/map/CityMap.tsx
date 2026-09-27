@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { renderToStaticMarkup } from 'react-dom/server';
 import gsap from 'gsap';
-import { Box, Flame, Maximize2, Minus, Navigation, Plus, X } from 'lucide-react';
+import { Box, Flame, Maximize2, Minus, Navigation, Plus, Sparkles, X } from 'lucide-react';
 import type { ActivityPoint, Issue } from '@shared/types';
 import type { CategoryId } from '@shared/categories';
 import { useCity } from '../lib/city';
 import { CATEGORIES, category, ICON, STATUS_SHORT, street } from '../lib/format';
 import { go } from '../lib/router';
+import { BeamsLayer } from './beams';
 import { optimize, type Trip } from './route';
 import './map.css';
 
@@ -35,6 +36,8 @@ export interface CityMapProps {
   variant: 'compact' | 'full';
   heat?: boolean;
   buildings?: boolean;
+  /** light beams rising from open issues (three.js custom layer) */
+  beams?: boolean;
   replayAt?: number | null;
   activity?: ActivityPoint[];
   picking?: Set<number>;
@@ -42,7 +45,7 @@ export interface CityMapProps {
   onTrip?: (t: Trip | null) => void;
 }
 
-export function CityMap({ issues, variant, heat = true, buildings = true, replayAt = null, activity, picking, onPick, onTrip }: CityMapProps) {
+export function CityMap({ issues, variant, heat = true, buildings = true, beams = true, replayAt = null, activity, picking, onPick, onTrip }: CityMapProps) {
   const city = useCity();
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -52,6 +55,7 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
   const [trip, setTrip] = useState<Trip | null>(null);
   const [routing, setRouting] = useState(false);
   const draw = useRef<gsap.core.Tween | null>(null);
+  const beamLayer = useRef<BeamsLayer | null>(null);
   const points = activity ?? city.activity;
   const pickRef = useRef(onPick);
   pickRef.current = onPick;
@@ -142,6 +146,14 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
           'line-trim-offset': [0, 0],
         },
       });
+      try {
+        const layer = new BeamsLayer(OTTAWA);
+        layer.setNight(dark());
+        m.addLayer(layer);
+        beamLayer.current = layer;
+      } catch {
+        /* custom layers unavailable: the pins still carry everything */
+      }
       setReady(true);
     });
     map.current = m;
@@ -149,6 +161,7 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
     const themeWatch = new MutationObserver(() => {
       if (!m.isStyleLoaded()) return;
       m.setConfigProperty('basemap', 'lightPreset', dark() ? 'night' : 'day');
+      beamLayer.current?.setNight(dark());
       m.setPaintProperty('route-casing', 'line-color', dark() ? '#000' : '#fff');
       m.setPaintProperty('report-dots', 'circle-stroke-color', dark() ? '#0b0c0c' : '#ffffff');
     });
@@ -178,6 +191,11 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
     m.setLayoutProperty('heat', 'visibility', heat ? 'visible' : 'none');
     m.setLayoutProperty('report-dots', 'visibility', heat ? 'visible' : 'none');
   }, [heat, ready]);
+
+  // ── light beams: open issues, shockwave on new or confirmed reports ──
+  useEffect(() => { if (ready) beamLayer.current?.setIssues(issues, city.fresh); }, [issues, city.fresh, ready]);
+  useEffect(() => { beamLayer.current?.setVisible(beams); }, [beams, ready]);
+  useEffect(() => { beamLayer.current?.setSelected(city.selectedId ?? null); }, [city.selectedId, ready]);
 
   // ── reports → heat (and the replay cursor) ──
   useEffect(() => {
@@ -423,7 +441,7 @@ function TripCard({ trip, onClose }: { trip: Trip; onClose: () => void }) {
   );
 }
 
-export function MapLayers({ heat, setHeat, buildings, setBuildings }: { heat: boolean; setHeat: (v: boolean) => void; buildings: boolean; setBuildings: (v: boolean) => void }) {
+export function MapLayers({ heat, setHeat, buildings, setBuildings, beams, setBeams }: { heat: boolean; setHeat: (v: boolean) => void; buildings: boolean; setBuildings: (v: boolean) => void; beams?: boolean; setBeams?: (v: boolean) => void }) {
   return (
     <div className="layers">
       <button className={heat ? 'on' : ''} onClick={() => setHeat(!heat)}>
@@ -432,6 +450,11 @@ export function MapLayers({ heat, setHeat, buildings, setBuildings }: { heat: bo
       <button className={buildings ? 'on' : ''} onClick={() => setBuildings(!buildings)}>
         <Box size={14} /> 3D city
       </button>
+      {setBeams && (
+        <button className={beams ? 'on' : ''} onClick={() => setBeams(!beams)}>
+          <Sparkles size={14} /> Light beams
+        </button>
+      )}
     </div>
   );
 }

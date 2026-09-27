@@ -22,6 +22,7 @@ export function CommandPage() {
   const root = useRef<HTMLDivElement>(null);
   const [heat, setHeat] = useState(true);
   const [buildings, setBuildings] = useState(true);
+  const [beams, setBeams] = useState(true);
   const now = Date.now();
   const open = city.issues.filter((i) => i.status !== 'resolved');
 
@@ -246,9 +247,9 @@ export function CommandPage() {
                 <i className="live-dot" /> {open.length} open
               </span>
             </div>
-            <MapLayers heat={heat} setHeat={setHeat} buildings={buildings} setBuildings={setBuildings} />
+            <MapLayers heat={heat} setHeat={setHeat} buildings={buildings} setBuildings={setBuildings} beams={beams} setBeams={setBeams} />
           </div>
-          <CityMap issues={city.issues} variant="compact" heat={heat} buildings={buildings} />
+          <CityMap beams={beams} issues={city.issues} variant="compact" heat={heat} buildings={buildings} />
         </section>
 
         <div className="span-4 stack">

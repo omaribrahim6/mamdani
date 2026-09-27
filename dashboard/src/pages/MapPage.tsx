@@ -22,6 +22,7 @@ export default function MapPage() {
   const [q, setQ] = useState('');
   const [heat, setHeat] = useState(true);
   const [buildings, setBuildings] = useState(true);
+  const [beams, setBeams] = useState(true);
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [replayAt, setReplayAt] = useState<number | null>(null);
@@ -80,7 +81,7 @@ export default function MapPage() {
   return (
     <div className="page mappage">
       <div className="mp-wrap card flush">
-        <CityMap
+        <CityMap beams={beams}
           issues={shown}
           variant="full"
           heat={heat}
@@ -188,7 +189,7 @@ export default function MapPage() {
         </aside>
 
         <div className="mp-tools">
-          <MapLayers heat={heat} setHeat={setHeat} buildings={buildings} setBuildings={setBuildings} />
+          <MapLayers heat={heat} setHeat={setHeat} buildings={buildings} setBuildings={setBuildings} beams={beams} setBeams={setBeams} />
         </div>
 
         <div className="mp-replay">
