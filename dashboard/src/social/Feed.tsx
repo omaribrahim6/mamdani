@@ -20,11 +20,15 @@ const PEOPLE = [
 ];
 const author = (i: Issue) => PEOPLE[i.id % PEOPLE.length];
 
-type Tab = 'latest' | 'trending' | 'fixed';
+/** The phone saves the whole conversation; keep what the resident said, short enough for a caption. */
+function residentWords(transcript: string) {
+  const theirs = [...transcript.matchAll(/Resident:\s*([\s\S]*?)(?=\s*(?:Mamdani|Resident):|$)/g)].map((m) => m[1].trim()).filter(Boolean);
+  const text = (theirs.length ? theirs.join(' ') : transcript).replace(/\s+/g, ' ').trim();
+  return text.length > 160 ? `${text.slice(0, 157).replace(/\s+\S*$/, '')}…` : text;
+}
 
 export function Feed() {
   const [issues, setIssues] = useState<Issue[]>([]);
-  const [tab, setTab] = useState<Tab>('latest');
   const [liked, setLiked] = useState<Set<number>>(new Set());
   const root = useRef<HTMLDivElement>(null);
 
@@ -40,14 +44,47 @@ export function Feed() {
     };
   }, []);
 
-  const posts = useMemo(() => {
-    const list = tab === 'fixed' ? issues.filter((i) => i.status === 'resolved') : issues.filter((i) => i.status !== 'resolved');
-    return [...list].sort(tab === 'trending' ? (a, b) => b.reports - a.reports : (a, b) => b.firstReportedAt - a.firstReportedAt).slice(0, 40);
-  }, [issues, tab]);
+  // only real reports with the resident's photo, newest first
+  const posts = useMemo(() => issues.filter((i) => i.mediaId).sort((a, b) => b.firstReportedAt - a.firstReportedAt), [issues]);
+
+  // comments: what residents said when they reported it, plus anything added here
+  const [said, setSaid] = useState<Record<number, string[]>>({});
+  const [mine, setMine] = useState<Record<number, string[]>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('mamdani-social-comments') ?? '{}');
+    } catch {
+      return {};
+    }
+  });
+  const [draft, setDraft] = useState<Record<number, string>>({});
+  useEffect(() => {
+    for (const p of posts) {
+      if (said[p.id]) continue;
+      api
+        .issue(p.id)
+        .then((r) => setSaid((m) => ({ ...m, [p.id]: r.reports.map((x) => residentWords(x.transcript)).filter(Boolean) })))
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts.map((p) => p.id).join()]);
+  const comment = (id: number) => {
+    const text = (draft[id] ?? '').trim();
+    if (!text) return;
+    setMine((m) => {
+      const next = { ...m, [id]: [...(m[id] ?? []), text] };
+      try {
+        localStorage.setItem('mamdani-social-comments', JSON.stringify(next));
+      } catch {
+        /* private window */
+      }
+      return next;
+    });
+    setDraft((d) => ({ ...d, [id]: '' }));
+  };
 
   useGSAP(() => {
     gsap.from('.post', { y: 20, opacity: 0, duration: 0.5, stagger: 0.05 });
-  }, { scope: root, dependencies: [tab, posts.length > 0] });
+  }, { scope: root, dependencies: [posts.length > 0] });
 
   const fixedThisWeek = issues.filter((i) => i.status === 'resolved').length;
 
@@ -92,13 +129,6 @@ export function Feed() {
         </span>
       </div>
 
-      <nav className="so-tabs">
-        {(['latest', 'trending', 'fixed'] as Tab[]).map((t) => (
-          <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
-            {t === 'latest' ? 'Latest' : t === 'trending' ? 'Most reported' : 'Fixed ✓'}
-          </button>
-        ))}
-      </nav>
 
       <main className="so-feed">
         {posts.map((i) => {
@@ -121,15 +151,7 @@ export function Feed() {
               </div>
 
               <div className="post-media">
-                {i.mediaId ? (
-                  <img src={api.media(i.mediaId)} alt={i.title} loading="lazy" />
-                ) : (
-                  <img
-                    src={`https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/pin-l+ff6a13(${i.lng},${i.lat})/${i.lng},${i.lat},17.4,0,30/640x420@2x?access_token=${import.meta.env.VITE_MAPBOX_ACCESS_TOKEN}&logo=false&attribution=false`}
-                    alt={`Map of ${i.address}`}
-                    loading="lazy"
-                  />
-                )}
+                <img src={api.media(i.mediaId!)} alt={i.title} loading="lazy" />
                 <span className="post-cat">
                   <CategoryIcon id={i.category} size={14} /> {category(i.category).label}
                 </span>
@@ -149,8 +171,8 @@ export function Feed() {
                 >
                   <Heart size={20} fill={liked.has(i.id) ? 'currentColor' : 'none'} /> Me too
                 </button>
-                <button>
-                  <MessageCircle size={20} /> {cityReplies.length}
+                <button onClick={() => document.getElementById(`c-${i.id}`)?.focus()}>
+                  <MessageCircle size={20} /> {(said[i.id]?.length ?? 0) + (mine[i.id]?.length ?? 0) + cityReplies.length}
                 </button>
                 <button
                   onClick={() => {
@@ -169,7 +191,10 @@ export function Feed() {
                   </p>
                 )}
                 <p>
-                  <b>{a.handle}</b> {i.title}. {i.summary}
+                  <b>{a.handle}</b> {said[i.id]?.[0] ? `“${said[i.id][0]}”` : i.title}
+                </p>
+                <p className="post-ai">
+                  <Sparkles size={13} /> {i.summary}
                 </p>
                 <p className="post-where">
                   <MapPin size={13} /> {street(i.address)}
@@ -186,11 +211,43 @@ export function Feed() {
                     </div>
                   </div>
                 )}
+                <ul className="comments">
+                  {(said[i.id] ?? []).slice(1).map((t, k) => {
+                    const who = PEOPLE[(i.id + k + 1) % PEOPLE.length];
+                    return (
+                      <li key={`s${k}`}>
+                        <b>{who.handle}</b> {t}
+                      </li>
+                    );
+                  })}
+                  {(mine[i.id] ?? []).map((t, k) => (
+                    <li key={`m${k}`}>
+                      <b>you</b> {t}
+                    </li>
+                  ))}
+                </ul>
+                <form
+                  className="comment-box"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    comment(i.id);
+                  }}
+                >
+                  <input
+                    id={`c-${i.id}`}
+                    value={draft[i.id] ?? ''}
+                    onChange={(e) => setDraft((d) => ({ ...d, [i.id]: e.target.value }))}
+                    placeholder="Add a comment…"
+                  />
+                  <button type="submit" disabled={!(draft[i.id] ?? '').trim()}>
+                    Post
+                  </button>
+                </form>
               </div>
             </article>
           );
         })}
-        {!posts.length && <p className="so-empty">Loading the city…</p>}
+        {!posts.length && <p className="so-empty">{issues.length ? 'No photo reports yet.' : 'Loading the city…'}</p>}
       </main>
     </div>
   );
