@@ -1,0 +1,446 @@
+/* ───────── command page ───────── */
+
+.hello {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 6px 6px;
+}
+
+.hello h1 {
+  margin: 0;
+  font-size: clamp(30px, 3.2vw, 44px);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.hello h1 span {
+  color: var(--ink-3);
+}
+
+.hello p {
+  margin: 8px 0 0;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.hello b {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.hello-chips {
+  display: flex;
+  gap: 8px;
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lg-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--chart-dot-2);
+}
+
+.lg-dot.proj {
+  background: transparent;
+  border: 1.5px dashed var(--chart-dot-2);
+}
+
+.big-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: -4px 0 8px;
+}
+
+.big {
+  font-size: 44px;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.big-unit {
+  color: var(--ink-3);
+  font-size: 13px;
+  margin-right: 4px;
+}
+
+.chip.gem {
+  color: #6b3fd6;
+  border-color: color-mix(in srgb, #8a3fd6 25%, transparent);
+  background: color-mix(in srgb, #8a3fd6 7%, var(--panel));
+}
+
+:root[data-theme='dark'] .chip.gem {
+  color: #b99bff;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+}
+
+.kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.kpi-head > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kpi-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex: 1;
+}
+
+.kpi-row.col {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.kpi-row .minidots {
+  flex: 0 1 170px;
+}
+
+.kpi-num {
+  font-size: 46px;
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.kpi-num small {
+  font-size: 13px;
+  letter-spacing: 0;
+  color: var(--ink-3);
+}
+
+.seg {
+  display: flex;
+  gap: 3px;
+  height: 10px;
+}
+
+.seg i {
+  border-radius: 3px;
+  min-width: 0;
+}
+
+.seg-key {
+  display: flex;
+  gap: 12px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.seg-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.seg-key i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+.kpi-link {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.map-card {
+  height: 560px;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-head {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 64px 16px 18px;
+  pointer-events: none;
+}
+
+.map-head > * {
+  pointer-events: auto;
+}
+
+.map-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.map-card .focus-chip {
+  top: 70px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+/* the insight card: Gemini's read, in the Zentra gradient */
+.insight {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+  border-radius: var(--radius-lg);
+  color: #fff;
+  min-height: 300px;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(90% 70% at 100% 0%, rgba(255, 214, 170, 0.9) 0%, transparent 50%),
+    radial-gradient(80% 80% at 0% 100%, #2f6bff 0%, transparent 60%),
+    linear-gradient(155deg, #ff8a3d 0%, #ff5a1f 40%, #c93a78 100%);
+}
+
+.insight-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.insight-refresh {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.insight-big {
+  margin: 6px 0 0;
+  font-size: 28px;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+  text-wrap: balance;
+}
+
+.insight-body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  opacity: 0.92;
+}
+
+.insight-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.insight-steps button {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 12.5px;
+  line-height: 1.35;
+  transition: background-color 0.2s;
+}
+
+.insight-steps button:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.insight-steps .n {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: #ff5a1f;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.insight-steps b {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.insight-cta {
+  margin-top: auto;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: #fff;
+  color: #0e1011;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.insight-wait {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.depts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dept {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px auto 64px;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.dept-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dept b {
+  font-weight: 500;
+  text-align: right;
+}
+
+.dept-late {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-align: right;
+}
+
+.see-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.see-all:hover {
+  color: var(--accent);
+}
+
+/* ───────── page header (map, queue, analytics, brief) ───────── */
+
+.phead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 6px 4px;
+}
+
+.phead h1 {
+  margin: 0;
+  font-size: clamp(28px, 2.8vw, 38px);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.phead p {
+  margin: 6px 0 0;
+  color: var(--ink-2);
+}
+
+.phead-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.field {
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink-3);
+}
+
+.field input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  width: 220px;
+}

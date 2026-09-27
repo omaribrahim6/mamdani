@@ -1,0 +1,82 @@
+/* Mamdani Command — design tokens.
+   Soft sage canvas, white cards, one black "ink" for emphasis and the street crew's hi-vis orange
+   as the only brand accent. Status colours are reserved for status and always ship with a label. */
+
+:root {
+  --bg: #eceee9;
+  --bg-2: #e3e6df;
+  --panel: #ffffff;
+  --panel-2: #f5f6f3;
+  --tint: #e6eae3;
+  --ink: #0e1011;
+  --ink-2: #4b5155;
+  --ink-3: #8a9094;
+  --ink-4: #b9bdbf;
+  --line: #e4e6e1;
+  --line-2: #d6d9d3;
+  --black: #0e1011;
+  --on-black: #ffffff;
+  --accent: #ff6a13;
+  --accent-soft: #fff0e6;
+  --pink: #ff2e88;
+  --hardhat: #ffc61a;
+
+  --st-new: #ff6a13;
+  --st-assigned: #2f6bff;
+  --st-progress: #d99a00;
+  --st-resolved: #12995a;
+  --st-late: #e0302b;
+  --good: #12995a;
+  --bad: #e0302b;
+
+  --chart-1: #0e1011;
+  --chart-dot: #c9dccd;
+  --chart-dot-2: #9fc4a8;
+  --chart-grid: #e8eae5;
+  --hatch: #2f6bff;
+
+  --radius-xl: 28px;
+  --radius-lg: 24px;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --radius-xs: 8px;
+  --gap: 16px;
+  --pad: 24px;
+  --shadow: 0 1px 0 rgba(14, 16, 17, 0.03), 0 10px 30px -18px rgba(14, 16, 17, 0.18);
+  --shadow-pop: 0 1px 0 rgba(14, 16, 17, 0.04), 0 24px 60px -20px rgba(14, 16, 17, 0.35);
+
+  --font: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --stencil: 'Big Shoulders Stencil', 'Geist', sans-serif;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0b0c0c;
+  --bg-2: #121414;
+  --panel: #151717;
+  --panel-2: #1c1e1f;
+  --tint: #111413;
+  --ink: #f2f2ee;
+  --ink-2: #b5b9b9;
+  --ink-3: #74797b;
+  --ink-4: #4a4f51;
+  --line: #222527;
+  --line-2: #2d3133;
+  --black: #ece6cc;
+  --on-black: #0f1010;
+  --accent-soft: #2a1a10;
+  --chart-1: #ece6cc;
+  --chart-dot: #25302a;
+  --chart-dot-2: #3e5a47;
+  --chart-grid: #1f2224;
+  --hatch: #6d95ff;
+  --st-assigned: #5b8bff;
+  --st-progress: #f0b429;
+  --st-resolved: #2fbf78;
+  --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 30px -18px rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 24px 60px -20px rgba(0, 0, 0, 0.8);
+  color-scheme: dark;
+}

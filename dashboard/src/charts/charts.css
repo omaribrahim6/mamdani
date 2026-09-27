@@ -1,0 +1,184 @@
+.axis {
+  font-size: 11px;
+  fill: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.axis.strong {
+  fill: var(--ink);
+  font-weight: 600;
+}
+
+.grid-line {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.tip-note {
+  margin-top: 6px;
+  max-width: 220px;
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+
+/* dot matrix */
+.dm {
+  width: 100%;
+}
+
+.dm-dot {
+  fill: var(--chart-dot-2);
+  transition: fill 0.2s, opacity 0.2s;
+}
+
+.dm-dot.ghost {
+  fill: var(--chart-grid);
+}
+
+.dm-col.proj .dm-dot {
+  fill: var(--chart-dot);
+}
+
+.dm-col.proj .dm-dot:not(.ghost) {
+  fill: transparent;
+  stroke: var(--chart-dot-2);
+  stroke-width: 1.4;
+  stroke-dasharray: 2 2;
+}
+
+.dm-col.on .dm-dot:not(.ghost) {
+  fill: var(--accent);
+  stroke: none;
+}
+
+.dm-col.off {
+  opacity: 0.55;
+}
+
+.dm-now line {
+  stroke: var(--ink-3);
+  stroke-dasharray: 3 3;
+}
+
+.dm-now text {
+  font-size: 11px;
+  fill: var(--ink-3);
+}
+
+.dm-guide line {
+  stroke: var(--accent);
+  stroke-dasharray: 4 4;
+  stroke-width: 1.5;
+}
+
+.dm-guide rect {
+  fill: var(--accent);
+}
+
+.dm-guide text {
+  fill: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* funnel */
+.fn-hit {
+  fill: transparent;
+}
+
+.fn-sep {
+  stroke: var(--line);
+}
+
+.fn-label {
+  font-size: 11.5px;
+  fill: var(--ink-3);
+}
+
+.fn-value {
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  fill: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.fn-col.on .fn-value,
+.fn-col.on .fn-label {
+  fill: var(--ink);
+}
+
+.fn-hatch-bg {
+  fill: color-mix(in srgb, var(--hatch) 10%, var(--panel));
+}
+
+.fn-hatch-line {
+  stroke: var(--hatch);
+  stroke-width: 2.4;
+}
+
+.fn-cap {
+  fill: var(--panel);
+  stroke: color-mix(in srgb, var(--hatch) 40%, transparent);
+}
+
+/* mini dots */
+.minidots {
+  position: relative;
+  padding-top: 26px;
+}
+
+.minidots-peak {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+}
+
+.minidots-peak b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.minidots-cols {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+}
+
+.minidots-col {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 3px;
+  flex: 1;
+  align-items: center;
+}
+
+.minidots-col i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* tick bars */
+.tickbar {
+  display: inline-flex;
+  gap: 2px;
+  height: 16px;
+  align-items: stretch;
+}
+
+.tickbar i {
+  width: 2px;
+  border-radius: 1px;
+  background: var(--line-2);
+  transition: background-color 0.4s;
+}

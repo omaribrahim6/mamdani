@@ -1,0 +1,397 @@
+.citymap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  border-radius: inherit;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+
+.citymap-gl {
+  position: absolute;
+  inset: 0;
+}
+
+.mapboxgl-ctrl-attrib,
+.mapboxgl-ctrl-logo {
+  opacity: 0.55;
+}
+
+/* ── pins: black discs with the category icon (Transcope), a coloured ring for the type ── */
+
+.pin {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: opacity 0.35s var(--ease), filter 0.35s;
+}
+
+.pin-head {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #0e1011;
+  color: #fff;
+  box-shadow:
+    0 0 0 3px var(--c),
+    0 6px 16px -4px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s var(--ease);
+}
+
+.pin-foot {
+  width: 2px;
+  height: 10px;
+  background: #0e1011;
+  border-radius: 0 0 2px 2px;
+}
+
+.pin-foot::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: #0e1011;
+  opacity: 0.35;
+}
+
+.pin[data-status='resolved'] {
+  opacity: 0.45;
+}
+
+.pin[data-status='resolved'] .pin-head {
+  background: #8a9094;
+}
+
+.pin.hot .pin-head::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--c);
+  animation: pin-pulse 1.8s var(--ease) infinite;
+}
+
+.pin.fresh .pin-head::after {
+  content: 'NEW';
+  position: absolute;
+  top: -12px;
+  right: -16px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font: 700 9px/1.4 var(--font);
+  letter-spacing: 0.06em;
+}
+
+@keyframes pin-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+.pin:hover .pin-head,
+.pin.selected .pin-head,
+.pin.focus .pin-head {
+  transform: scale(1.15) translateY(-2px);
+}
+
+.pin.dim {
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
+.pin.picked .pin-head {
+  background: var(--accent);
+  box-shadow:
+    0 0 0 3px #fff,
+    0 0 0 5px var(--accent),
+    0 6px 16px -4px rgba(0, 0, 0, 0.5);
+}
+
+.pin-card {
+  position: absolute;
+  bottom: 52px;
+  left: 50%;
+  transform: translate(-50%, 6px);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 11px;
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-pop);
+  white-space: nowrap;
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.25s var(--ease);
+  z-index: 3;
+}
+
+.pin-card b {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.pin-card em {
+  font-style: normal;
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.pin:hover .pin-card,
+.pin.selected .pin-card,
+.pin.focus .pin-card {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.citymap.compact .pin.focus:not(:hover) .pin-card {
+  opacity: 0;
+}
+
+.mapboxgl-marker:has(.pin:hover),
+.mapboxgl-marker:has(.pin.selected) {
+  z-index: 5;
+}
+
+/* ── overlays ── */
+
+.focus-chip {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 14px;
+  border-radius: 999px;
+  background: var(--black);
+  color: var(--on-black);
+  font-size: 12.5px;
+  font-weight: 500;
+  box-shadow: var(--shadow-pop);
+  z-index: 4;
+  animation: msg-in 0.4s var(--ease) both;
+}
+
+.focus-chip button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: inherit;
+}
+
+.focus-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.map-expand {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 4;
+}
+
+.map-zoom {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 4;
+}
+
+.map-zoom button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.layers {
+  display: flex;
+  gap: 6px;
+}
+
+.layers button {
+  height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  transition: all 0.2s;
+}
+
+.layers button.on {
+  background: var(--black);
+  border-color: var(--black);
+  color: var(--on-black);
+}
+
+.stop {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #fff;
+  font: 700 12px/1 var(--font);
+  border: 2px solid #fff;
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.4);
+}
+
+.stop.depot {
+  width: 32px;
+  height: 32px;
+  background: #2f6bff;
+}
+
+/* ── route card ── */
+
+.trip {
+  position: absolute;
+  right: 64px;
+  bottom: 16px;
+  width: 340px;
+  max-height: calc(100% - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-pop);
+  z-index: 5;
+  animation: msg-in 0.5s var(--ease) both;
+}
+
+.trip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.trip-kicker {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.trip-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.trip-stats b {
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.trip-stats span {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-right: 8px;
+}
+
+.trip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  position: relative;
+}
+
+.trip-list li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 8px 4px;
+  cursor: pointer;
+  border-radius: 10px;
+  position: relative;
+}
+
+.trip-list li:hover {
+  background: var(--panel-2);
+}
+
+.trip-list li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 32px;
+  bottom: -8px;
+  border-left: 2px dotted var(--line-2);
+}
+
+.trip-n {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.trip-list b {
+  display: block;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.trip-list span {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.trip-actions {
+  display: flex;
+  gap: 8px;
+}
