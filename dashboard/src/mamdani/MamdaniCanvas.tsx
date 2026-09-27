@@ -18,9 +18,10 @@ function loadModel() {
 class CommandStage extends PortraitStage {
   /** where the camera sits: y of the lens and its target, distance, field of view */
   shot([y, target, z, fov]: readonly [number, number, number, number]) {
-    this.camera.position.set(0, y, z);
+    // the model stands a touch to his right of the origin; aim the lens at his middle
+    this.camera.position.set(CENTER_X, y, z);
     this.camera.fov = fov;
-    this.camera.lookAt(0, target, 0);
+    this.camera.lookAt(CENTER_X, target, 0);
     this.camera.updateProjectionMatrix();
   }
 }
@@ -38,6 +39,8 @@ export interface MamdaniProps {
   className?: string;
   onReady?: () => void;
 }
+
+const CENTER_X = -0.04;
 
 const FRAMES: Record<NonNullable<MamdaniProps['framing']>, readonly [number, number, number, number]> = {
   face: [1.02, 1.0, 1.05, 22],

@@ -38,7 +38,9 @@ export function Sidebar({ page }: { page: Page }) {
       <div className="brand side-anim">
         <img src="/mamdani-face.png" alt="" className="brand-face" />
         <div>
-          <div className="brand-word">MAMDANI</div>
+          <div className="brand-word">
+            mamdani<i>.</i>
+          </div>
           <div className="brand-sub">Command · City of Ottawa</div>
         </div>
       </div>

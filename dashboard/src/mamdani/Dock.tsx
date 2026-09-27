@@ -68,6 +68,7 @@ export function Dock() {
     });
   const { speaking, analyser } = useVoice();
   const [bubble, setBubble] = useState<string | null>(null);
+  const [hover, setHover] = useState(false);
   const [gesture, setGesture] = useState<{ g: Gesture; key: number } | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   const launcher = useRef<HTMLButtonElement>(null);
@@ -245,18 +246,19 @@ export function Dock() {
         ref={launcher}
         className={`dock-launch ${open ? 'hide' : ''}`}
         onClick={() => setOpen(true)}
-        onMouseEnter={() => setGesture({ g: 'proud', key: Date.now() })}
-        onMouseLeave={() => setGesture({ g: 'rest', key: Date.now() })}
+        onMouseEnter={() => (setHover(true), setGesture({ g: 'proud', key: Date.now() }))}
+        onMouseLeave={() => (setHover(false), setGesture({ g: 'rest', key: Date.now() }))}
         aria-label="Ask Mamdani"
       >
         <span className="dock-sun" />
         <span className="dock-rings" />
-        {!open && <MamdaniCanvas className="dock-canvas" framing="waist" behavior={behavior} gesture={gesture} analyser={analyser} />}
-        <span className="dock-label">
-          Ask Mamdani <kbd>Ctrl J</kbd>
-        </span>
+        {!open && <MamdaniCanvas className="dock-canvas" framing="bust" behavior={behavior} gesture={gesture} analyser={analyser} />}
       </button>
-      {bubble && !open && (
+      {/* outside the circle, so the quarter-circle clip can't cut it off */}
+      <span className={`dock-label ${hover && !open ? 'on' : ''}`} aria-hidden>
+        Ask Mamdani <kbd>Ctrl J</kbd>
+      </span>
+      {bubble && !open && !hover && (
         <button className="dock-bubble" onClick={() => setOpen(true)}>
           {bubble}
         </button>

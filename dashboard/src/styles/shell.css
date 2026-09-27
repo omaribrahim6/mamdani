@@ -31,11 +31,15 @@
 }
 
 .brand-word {
-  font-family: var(--stencil);
-  font-weight: 900;
-  font-size: 25px;
-  letter-spacing: 0.06em;
-  line-height: 0.9;
+  font-weight: 600;
+  font-size: 21px;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.brand-word i {
+  font-style: normal;
+  color: var(--accent);
 }
 
 .brand-sub {

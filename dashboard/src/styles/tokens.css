@@ -47,7 +47,6 @@
 
   --font: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
-  --stencil: 'Big Shoulders Stencil', 'Geist', sans-serif;
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: light;

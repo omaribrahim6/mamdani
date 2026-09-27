@@ -4,8 +4,8 @@
   position: fixed;
   right: 0;
   bottom: 0;
-  width: 232px;
-  height: 232px;
+  width: 168px;
+  height: 168px;
   z-index: 48;
   border-top-left-radius: 100%;
   overflow: hidden;
@@ -36,41 +36,44 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: repeating-radial-gradient(circle at 100% 100%, transparent 0 26px, rgba(255, 255, 255, 0.12) 26px 27px);
+  background: repeating-radial-gradient(circle at 100% 100%, transparent 0 22px, rgba(255, 255, 255, 0.12) 22px 23px);
   mix-blend-mode: soft-light;
 }
 
 .dock-canvas {
   position: absolute;
-  right: -6px;
-  bottom: -54px;
-  width: 230px;
-  height: 290px;
+  right: -14px;
+  bottom: -26px;
+  width: 170px;
+  height: 190px;
   pointer-events: none;
 }
 
 .dock-label {
-  position: absolute;
-  left: 62px;
-  top: 62px;
+  position: fixed;
+  right: 150px;
+  bottom: 28px;
+  z-index: 49;
   display: inline-flex;
   gap: 6px;
   align-items: center;
-  padding: 6px 10px;
+  padding: 7px 12px;
   border-radius: 999px;
-  background: rgba(14, 16, 17, 0.88);
-  color: #fff;
-  font-size: 12px;
+  background: var(--black);
+  color: var(--on-black);
+  font-size: 12.5px;
   font-weight: 500;
   white-space: nowrap;
-  transform: rotate(-45deg) translate(-30px, 12px);
-  transform-origin: left top;
+  box-shadow: var(--shadow-pop);
+  pointer-events: none;
   opacity: 0;
-  transition: opacity 0.25s;
+  transform: translateX(8px);
+  transition: opacity 0.2s, transform 0.3s var(--ease);
 }
 
-.dock-launch:hover .dock-label {
+.dock-label.on {
   opacity: 1;
+  transform: none;
 }
 
 .dock-label kbd,
@@ -84,8 +87,8 @@
 
 .dock-bubble {
   position: fixed;
-  right: 196px;
-  bottom: 176px;
+  right: 132px;
+  bottom: 124px;
   z-index: 49;
   max-width: 260px;
   padding: 12px 14px;
@@ -152,11 +155,10 @@
 }
 
 .chat-title b {
-  font-family: var(--stencil);
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  line-height: 1;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 .chat-title span {
@@ -533,10 +535,11 @@
 /* Mamdani standing behind the message box */
 .chat-stage {
   position: relative;
-  height: 128px;
+  height: 132px;
   flex: none;
   z-index: 1;
-  margin-top: -24px;
+  margin-top: -20px;
+  overflow: hidden;
   pointer-events: none;
   background: radial-gradient(60% 90% at 50% 100%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%);
 }
@@ -544,16 +547,16 @@
 .chat-canvas {
   position: absolute;
   left: 50%;
-  bottom: -132px;
-  width: 330px;
-  height: 340px;
+  top: -22px;
+  width: 190px;
+  height: 200px;
   transform: translateX(-50%);
 }
 
 .composer {
   position: relative;
   z-index: 3;
-  margin: -34px 14px 14px;
+  margin: -26px 14px 14px;
   display: flex;
   align-items: flex-end;
   gap: 8px;
@@ -606,13 +609,13 @@
 
 @media (max-width: 640px) {
   .dock-launch {
-    width: 150px;
-    height: 150px;
+    width: 128px;
+    height: 128px;
   }
   .dock-canvas {
-    width: 160px;
-    height: 200px;
-    bottom: -40px;
+    width: 130px;
+    height: 146px;
+    bottom: -20px;
   }
   .dock-bubble {
     display: none;
