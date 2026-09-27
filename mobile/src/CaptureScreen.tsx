@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Animated, Easing, Image, Linking, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Defs, Line, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import type { MayorOutfit } from '../../components/mayor/build';
 import { PortraitStage } from '../../components/mayor/portrait';
 import { MayorStage } from '../../components/mayor/stage';
@@ -815,11 +815,32 @@ function PortraitWindow({
       accessibilityLabel={listening ? 'Mamdani is listening' : 'Mamdani'}
     >
       <View style={styles.windowInner}>
-        <LinearGradient colors={['#f1eee7', '#d8d4ca']} style={StyleSheet.absoluteFill} />
+        <HiVisSun size={WINDOW - 6} />
         <GLHost create={(s) => new PortraitStage(s)} onReady={onStage} />
       </View>
       {live && <View style={styles.liveDot} />}
     </Animated.View>
+  );
+}
+
+/** Behind Mamdani in his window: the hi-vis sun he stands in on the dashboard, glowing up from below. */
+function HiVisSun({ size }: { size: number }) {
+  const rings = Array.from({ length: 7 }, (_, k) => size * 0.16 + k * size * 0.15);
+  return (
+    <Svg width={size} height={size} style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Defs>
+        <RadialGradient id="sun" cx="50%" cy="100%" rx="100%" ry="100%" fx="50%" fy="100%">
+          <Stop offset="0" stopColor="#ffb070" />
+          <Stop offset="0.38" stopColor="#ff7a2a" />
+          <Stop offset="0.62" stopColor="#ff5a1f" />
+          <Stop offset="1" stopColor="#e8481a" />
+        </RadialGradient>
+      </Defs>
+      <Rect width={size} height={size} fill="url(#sun)" />
+      {rings.map((r) => (
+        <Circle key={r} cx={size / 2} cy={size * 1.02} r={r} stroke="#ffffff" strokeOpacity={0.12} strokeWidth={1} fill="none" />
+      ))}
+    </Svg>
   );
 }
 
