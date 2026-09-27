@@ -1,8 +1,52 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "mamdani", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3000 },
-    { "name": "dashboard", "runtimeExecutable": "npm", "runtimeArgs": ["--prefix", "dashboard", "run", "dev"], "port": 5173 },
-    { "name": "mamdani-mobile-web", "runtimeExecutable": "npx", "runtimeArgs": ["expo", "start", "mobile", "--web", "--port", "8081"], "port": 8081 }
+    {
+      "name": "mamdani",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "dashboard",
+        "run",
+        "dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "mamdani-mobile-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "expo",
+        "start",
+        "mobile",
+        "--web",
+        "--port",
+        "8081"
+      ],
+      "port": 8081
+    },
+    {
+      "name": "dive-lab",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "dashboard/node_modules/vite/bin/vite.js",
+        "dashboard",
+        "--port",
+        "5174"
+      ],
+      "env": {
+        "API_PROXY": "https://mamdani.vercel.app"
+      },
+      "port": 5174
+    }
   ]
 }
