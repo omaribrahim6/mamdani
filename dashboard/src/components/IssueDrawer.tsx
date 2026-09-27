@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { Accessibility, Copy, HardHat, MapPin, MessageSquare, Printer, ShieldAlert, Sparkles, TriangleAlert, Users, X } from 'lucide-react';
+import { Accessibility, Copy, Globe, HardHat, MapPin, MessageSquare, Printer, ShieldAlert, Sparkles, TriangleAlert, Users, X } from 'lucide-react';
 import type { Issue, Report } from '@shared/types';
 import { sla } from '@shared/sla';
 import { metersBetween as metresBetween } from '@shared/priority';
@@ -244,7 +244,7 @@ export function IssueDrawer() {
                     <HardHat size={18} />
                     <div>
                       <b>{planState === 'error' ? 'Try again' : 'Draft the crew plan'}</b>
-                      <span>Crew, cost range, materials, ROI and a note for residents</span>
+                      <span>Crew and hours, a cost worked out line by line, sourced risks, and a note for residents (about 30 s)</span>
                     </div>
                   </button>
                 )}
@@ -363,6 +363,8 @@ function Score({ label, value, icon }: { label: string; value: number; icon: Rea
 
 function Plan({ plan }: { plan: WorkPlan }) {
   const city = useCity();
+  const people = plan.crew.reduce((n, c) => n + c.count, 0);
+  const onSite = Math.max(0, ...plan.crew.map((c) => c.hours));
   return (
     <div className="plan-body">
       <div className="plan-kpis">
@@ -375,15 +377,40 @@ function Plan({ plan }: { plan: WorkPlan }) {
         <div>
           <span>Crew</span>
           <b className="num">
-            {plan.crew.size} × {plan.crew.hours}h
+            {people} {people === 1 ? 'person' : 'people'} · {onSite}h
           </b>
         </div>
         <div>
-          <span>Trade</span>
-          <b>{plan.crew.trade}</b>
+          <span>Labour</span>
+          <b className="num">{plan.cost.labourHours} person-hours</b>
         </div>
       </div>
-      <p className="muted small">{plan.cost.basis}</p>
+
+      <table className="cost">
+        <tbody>
+          {plan.cost.lines.map((l, k) => (
+            <tr key={k} className={`cost-${l.kind}`}>
+              <td>
+                <b>{l.label}</b>
+                <span>{l.detail}</span>
+              </td>
+              <td className="num">{l.kind === 'contingency' ? `+${money(l.high).replace('CA', '')}` : l.low === l.high ? money(l.low).replace('CA', '') : `${money(l.low).replace('CA', '')}–${money(l.high).replace('CA', '')}`}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Total</td>
+            <td className="num">
+              {money(plan.cost.low)}–{money(plan.cost.high).replace('CA', '')}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+      <p className="muted small">
+        {plan.cost.basis} Low end: the job as planned. High end: 50% longer on site, plus contingency. Materials use Gemini's unit-cost estimates.
+      </p>
+
       <div className="plan-cols">
         <div>
           <h4>Steps</h4>
@@ -396,7 +423,7 @@ function Plan({ plan }: { plan: WorkPlan }) {
         <div>
           <h4>Bring</h4>
           <ul>
-            {[...plan.materials, ...plan.equipment].slice(0, 8).map((s) => (
+            {[...plan.equipment.map((e) => e.label), ...plan.materials.map((m) => `${m.item} (${m.quantity} ${m.unit})`)].slice(0, 8).map((s) => (
               <li key={s}>{s}</li>
             ))}
           </ul>
@@ -411,6 +438,16 @@ function Plan({ plan }: { plan: WorkPlan }) {
       <div className="plan-note good">
         <b>Return on fixing now</b> {plan.roi}
       </div>
+      {plan.sources.length > 0 && (
+        <div className="sources">
+          <Globe size={12} />
+          {plan.sources.map((s) => (
+            <a key={s.uri} href={s.uri} target="_blank" rel="noreferrer">
+              {s.title}
+            </a>
+          ))}
+        </div>
+      )}
       <div className="resident">
         <div className="resident-head">
           <b>Update for residents</b>

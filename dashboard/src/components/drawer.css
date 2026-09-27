@@ -599,3 +599,46 @@
   font-size: 11.5px;
   color: var(--ink-3);
 }
+
+.cost {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.cost td {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.cost td:last-child {
+  text-align: right;
+  white-space: nowrap;
+  padding-left: 12px;
+}
+
+.cost td b {
+  display: block;
+  font-weight: 500;
+}
+
+.cost td span {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.cost-contingency td {
+  color: var(--ink-2);
+}
+
+.cost tfoot td {
+  border-bottom: 0;
+  padding-top: 10px;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.plan-kpis b.num {
+  white-space: nowrap;
+}

@@ -62,14 +62,22 @@ export interface Brief {
 export interface WorkPlan {
   issueId: number;
   generatedAt: number;
-  crew: { size: number; hours: number; trade: string };
-  cost: { low: number; high: number; currency: 'CAD'; basis: string };
-  materials: string[];
-  equipment: string[];
+  crew: Array<{ role: string; label: string; count: number; hours: number }>;
+  equipment: Array<{ kind: string; label: string; hours: number }>;
+  materials: Array<{ item: string; quantity: number; unit: string; unitCost: number }>;
+  cost: {
+    low: number;
+    high: number;
+    currency: 'CAD';
+    labourHours: number;
+    basis: string;
+    lines: Array<{ kind: 'labour' | 'equipment' | 'materials' | 'contingency'; label: string; detail: string; low: number; high: number }>;
+  };
   steps: string[];
   trafficControl: string;
   riskIfDelayed: string;
   roi: string;
+  sources: Source[];
   residentUpdate: string;
 }
 

@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { workPlan } from '@/lib/command/assist';
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 // GET /api/issues/1842/plan → Gemini's work plan: crew, cost range, materials, resident update
 export async function GET(_req: NextRequest, ctx: RouteContext<'/api/issues/[id]/plan'>) {
