@@ -31,6 +31,8 @@ export interface MamdaniProps {
   gesture?: { g: Gesture; key: number } | null;
   /** follow the pointer with his head */
   follow?: boolean;
+  /** his voice, so the mouth follows it */
+  analyser?: AnalyserNode | null;
   /** framing: head & shoulders, or down to the waist */
   framing?: 'bust' | 'waist' | 'face';
   className?: string;
@@ -43,7 +45,7 @@ const FRAMES: Record<NonNullable<MamdaniProps['framing']>, readonly [number, num
   waist: [0.92, 0.8, 2.35, 28],
 };
 
-export function MamdaniCanvas({ behavior = 'watch', expression, gesture, follow = true, framing = 'bust', className, onReady }: MamdaniProps) {
+export function MamdaniCanvas({ behavior = 'watch', expression, gesture, follow = true, framing = 'bust', analyser = null, className, onReady }: MamdaniProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const stage = useRef<CommandStage | null>(null);
 
@@ -81,6 +83,10 @@ export function MamdaniCanvas({ behavior = 'watch', expression, gesture, follow 
   useEffect(() => {
     if (expression) stage.current?.expression(expression);
   }, [expression]);
+
+  useEffect(() => {
+    stage.current?.listen(analyser);
+  }, [analyser]);
 
   useEffect(() => {
     if (gesture) stage.current?.gesture(gesture.g, 0.35);

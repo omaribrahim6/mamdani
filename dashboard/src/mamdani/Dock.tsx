@@ -6,6 +6,7 @@ import { ask, type AgentEvent, type Source } from '../lib/api';
 import { useCity } from '../lib/city';
 import { category, STATUS_SHORT, street } from '../lib/format';
 import { go, usePage } from '../lib/router';
+import { speak, stopVoice, useVoice } from '../lib/voice';
 import { Markdown } from './markdown';
 import { MamdaniCanvas } from './MamdaniCanvas';
 import type { Behavior, Gesture } from '@mayor/portrait';
@@ -47,8 +48,25 @@ export function Dock() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [streaming, setStreaming] = useState(false);
-  const [voice, setVoice] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
+  const [voice, setVoiceState] = useState(() => {
+    try {
+      return localStorage.getItem('mamdani-voice') !== 'off';
+    } catch {
+      return true;
+    }
+  });
+  const setVoice = (f: (v: boolean) => boolean) =>
+    setVoiceState((v) => {
+      const next = f(v);
+      try {
+        localStorage.setItem('mamdani-voice', next ? 'on' : 'off');
+      } catch {
+        /* private window */
+      }
+      if (!next) stopVoice();
+      return next;
+    });
+  const { speaking, analyser } = useVoice();
   const [bubble, setBubble] = useState<string | null>(null);
   const [gesture, setGesture] = useState<{ g: Gesture; key: number } | null>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -82,6 +100,25 @@ export function Dock() {
       clearTimeout(hide);
     };
   }, [open, city.fresh.size, city.brief]);
+
+  // a new report lands: he points at it, says so, and (voice on) tells you out loud
+  const seenFresh = useRef(0);
+  useEffect(() => {
+    const n = city.fresh.size;
+    if (n <= seenFresh.current) return;
+    seenFresh.current = n;
+    const newest = [...city.fresh].map((id) => city.byId.get(id)).filter(Boolean).pop();
+    if (!newest) return;
+    const line = `New report: ${category(newest.category).label.toLowerCase()} at ${street(newest.address)}.`;
+    setGesture({ g: 'pointFeed', key: Date.now() });
+    setTimeout(() => setGesture({ g: 'rest', key: Date.now() }), 2200);
+    if (!open) {
+      setBubble(line);
+      setTimeout(() => setBubble(null), 7000);
+    }
+    if (voice && !busy) void speak(`${line} ${newest.title}.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [city.fresh]);
 
   // open/close: the panel grows out of the corner he lives in
   useEffect(() => {
@@ -127,17 +164,7 @@ export function Dock() {
   const patch = (id: number, f: (m: Msg) => Msg) => setMsgs((l) => l.map((m) => (m.id === id ? f(m) : m)));
 
   function say(text: string) {
-    if (!voice || !('speechSynthesis' in window)) return;
-    const plain = text.replace(/[*#`|>-]/g, ' ').replace(/\s+/g, ' ').slice(0, 600);
-    const u = new SpeechSynthesisUtterance(plain);
-    const v = speechSynthesis.getVoices().find((x) => /en-(CA|US|GB)/.test(x.lang) && /male|daniel|guy|david|george|ryan/i.test(x.name));
-    if (v) u.voice = v;
-    u.rate = 1.04;
-    u.pitch = 0.95;
-    u.onstart = () => setSpeaking(true);
-    u.onend = u.onerror = () => setSpeaking(false);
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
+    if (voice) void speak(text);
   }
 
   async function send(text: string) {
@@ -202,8 +229,7 @@ export function Dock() {
 
   const stop = () => {
     abort.current?.abort();
-    speechSynthesis?.cancel();
-    setSpeaking(false);
+    stopVoice();
   };
 
   const reset = () => {
@@ -224,7 +250,7 @@ export function Dock() {
       >
         <span className="dock-sun" />
         <span className="dock-rings" />
-        {!open && <MamdaniCanvas className="dock-canvas" framing="waist" behavior={behavior} gesture={gesture} />}
+        {!open && <MamdaniCanvas className="dock-canvas" framing="waist" behavior={behavior} gesture={gesture} analyser={analyser} />}
         <span className="dock-label">
           Ask Mamdani <kbd>Ctrl J</kbd>
         </span>
@@ -276,7 +302,7 @@ export function Dock() {
         </div>
 
         <div className="chat-stage">
-          {open && <MamdaniCanvas className="chat-canvas" framing="waist" behavior={behavior} expression={expression} gesture={gesture} />}
+          {open && <MamdaniCanvas className="chat-canvas" framing="waist" behavior={behavior} expression={expression} gesture={gesture} analyser={analyser} />}
         </div>
 
         <form

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Accessibility, CalendarDays, CloudRain, Globe, Layers, Printer, RefreshCw, Route as RouteIcon, TrendingUp, Volume2, VolumeX } from 'lucide-react';
@@ -6,6 +6,7 @@ import { useCity } from '../lib/city';
 import { category, clock, hours, street } from '../lib/format';
 import { go } from '../lib/router';
 import { MamdaniCanvas } from '../mamdani/MamdaniCanvas';
+import { speak, stopVoice, useVoice } from '../lib/voice';
 import './brief.css';
 
 // Today's brief, written by Gemini from the city record and the web: the memo a supervisor reads
@@ -17,7 +18,8 @@ export default function BriefPage() {
   const city = useCity();
   const b = city.brief;
   const root = useRef<HTMLDivElement>(null);
-  const [reading, setReading] = useState(false);
+  const { speaking, analyser } = useVoice();
+  const reading = speaking;
 
   useGSAP(
     () => {
@@ -28,24 +30,12 @@ export default function BriefPage() {
     { scope: root, dependencies: [b?.generatedAt] },
   );
 
-  useEffect(() => () => speechSynthesis?.cancel(), []);
+  useEffect(() => () => stopVoice(), []);
 
   const read = () => {
     if (!b) return;
-    if (reading) {
-      speechSynthesis.cancel();
-      setReading(false);
-      return;
-    }
-    const text = [b.greeting, b.headline + '.', b.summary, ...b.priorities.map((p, k) => `Number ${k + 1}: ${p.action}.`), b.signoff].join(' ');
-    const u = new SpeechSynthesisUtterance(text);
-    const v = speechSynthesis.getVoices().find((x) => /en-(CA|US|GB)/.test(x.lang) && /male|daniel|guy|david|george|ryan/i.test(x.name));
-    if (v) u.voice = v;
-    u.rate = 1.03;
-    u.onend = u.onerror = () => setReading(false);
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
-    setReading(true);
+    if (speaking) return stopVoice();
+    void speak([b.greeting, `${b.headline}.`, b.summary, ...b.priorities.slice(0, 3).map((p, k) => `Number ${k + 1}: ${p.action}.`), b.signoff].join(' '), 900);
   };
 
   if (!b)
@@ -96,7 +86,7 @@ export default function BriefPage() {
           </div>
         </div>
         <div className="bf-hero-mamdani">
-          <MamdaniCanvas className="bf-canvas" framing="waist" behavior={reading ? 'talk' : 'watch'} expression={reading ? 'CHEERFUL' : 'NEUTRAL'} />
+          <MamdaniCanvas className="bf-canvas" framing="waist" behavior={reading ? 'talk' : 'watch'} expression={reading ? 'CHEERFUL' : 'NEUTRAL'} analyser={analyser} />
         </div>
       </section>
 
