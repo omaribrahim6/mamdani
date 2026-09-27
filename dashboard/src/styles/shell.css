@@ -547,3 +547,10 @@
 .feed-status {
   background: var(--st-assigned);
 }
+
+/* too short to show a few reports: keep the space, drop the list rather than show a lone heading */
+@media (max-height: 880px) {
+  .side-recent > * {
+    display: none;
+  }
+}
