@@ -2,6 +2,40 @@
 
 Report civic problems with a photo and a conversation. An animated inspector helps residents describe the issue, presents the result, and lets them follow its status.
 
+**Live:** resident app API at [mamdani.vercel.app](https://mamdani.vercel.app) · city dashboard at [mamdani-command.vercel.app](https://mamdani-command.vercel.app)
+
+## One loop between residents and City Hall
+
+Today a resident who spots a broken sidewalk has to find the right 311 form, pick a category they don't know, describe it in words, and then hear nothing back. On the other side, the city gets a pile of vague, duplicated tickets with no photo, no location precision and no sense of what matters most.
+
+Mamdani closes that loop from both ends:
+
+1. **A resident points their phone and talks.** Mamdani (Gemini Live) looks at the problem, asks what he needs to, and takes the evidence photo himself. No forms, no categories to guess.
+2. **Gemini turns it into a work order the city can act on:** what it is, how severe, how dangerous, whether it blocks a wheelchair, which department owns it, and exactly where. Faces and plates are blurred before anything is stored.
+3. **Duplicates collapse into one issue.** Ten people reporting the same pothole become one work order with ten confirmations, matched by location and by what the photos show (Gemini embeddings in Tiger Data's pgvector). Every confirmation raises its priority.
+4. **The city sees it seconds later in Mamdani Command,** ranked, mapped, costed and routed to the right crew.
+5. **Every status change goes straight back to the resident.** "Crew assigned", "being fixed", "fixed" show up in their app, and anything Mamdani tells them is checked against the city's record first.
+
+The resident gets heard. The city gets clean, deduplicated, prioritized data instead of noise. Both sides look at the same record.
+
+## Mamdani Command: the city's side
+
+**Who it's for:** the people who actually fix the city. Operations supervisors deciding what crews do today, engineers and inspectors triaging hazards, dispatchers planning runs, and councillor offices that need to answer "what's happening on my streets?" in seconds.
+
+**What it does:**
+
+- **Tells you what matters first.** Every issue gets a priority out of 100 that you can open up and read: severity, safety risk, accessibility impact, how many residents reported it, and how long it has waited. Nothing is a black box.
+- **Holds the city to its promises.** Every open issue runs a clock against its service target (tighter for safety hazards). Late and at-risk work is flagged before it becomes a complaint.
+- **Puts it all on a live map.** A 3D map of Ottawa with every open issue, a heat layer of where residents are reporting, and a 7-day replay that shows where problems cluster over time.
+- **Plans the crew's day.** Pick stops (or ask Mamdani) and it orders them into the shortest run from the Public Works yard, drives it on real roads, and gives you a manifest to send the crew. Nearby issues can be batched into one visit.
+- **Writes the work plan.** For any issue, Gemini drafts crew size and hours, a cost range in CAD, materials, steps, traffic control, what it costs to wait, and a plain-language update for the residents who reported it.
+- **Briefs you every morning.** Gemini reads the whole record and checks the weather and conditions with Google Search, then writes the day's memo: what changed, the five things to do first and why, which crew goes where, and what to watch. Mamdani will read it to you.
+- **Answers questions like a colleague.** Ask Mamdani, the 3D inspector in the corner, anything: "Which accessibility barriers are past target in Centretown?", "Plan a route for the worst road jobs", "Find photos that look like flooding at a crosswalk". He answers from the live record in Tiger Data, cites outside sources when he uses the web, highlights what he's talking about on the map, and proposes changes that a person confirms. He never edits the record on his own.
+- **Shows who is waiting longest.** Analytics break the backlog down by department, time of day and neighbourhood, so the city can see whether some areas wait longer or carry more accessibility barriers than others.
+- **Stays live.** New resident reports appear within seconds, with a notification and Mamdani calling them out.
+
+The dashboard lives in [`dashboard/`](dashboard/README.md) (Vite + React, GSAP, Mapbox, and the same 3D Mamdani as the phone). Its Gemini features run in the Next API under [`lib/command/`](lib/command).
+
 ## Architecture
 
 Target reporting flow: the phone frontend sends photos, video, and audio to Gemini. Gemini responds as Mamdani and prepares structured issue data for TigerData Postgres. The government dashboard reads those reports, with admin access through Auth0.
@@ -32,7 +66,10 @@ Model roles and their implementation on `main` are listed below. The Gemini IDs 
 | `gemini-3.8-live` | Runs Mamdani's mobile conversation: sees camera frames, hears microphone audio, streams spoken replies and transcripts, and calls `report_issue` when ready to capture evidence. | `GEMINI_LIVE_MODEL` | [Live setup](lib/live.ts), [mobile client](mobile/src/live/client.ts) |
 | `gemini-3.8-flash` | Analyzes the evidence photo, optional short video, and conversation context. Produces the issue category, description, severity, safety risk, accessibility impact, confidence, bounding box, and any clarification question. Also chooses Mamdani's response, outfit, emotion, prop, and animation. | `GEMINI_MODEL` | [Report analysis](lib/analyze.ts), [submission pipeline](lib/submit.ts) |
 | `gemini-3.5-flash-lite` | Screens photos and locates faces and licence plates for pixelation; compares two photos when duplicate matching needs a visual check; checks answers against saved report facts when Check Grounding is unavailable and rewrites unsupported answers. | `GEMINI_LITE_MODEL` | [Photo screening](lib/screen.ts), [duplicate matching](lib/intake.ts), [answer verification](lib/verify.ts) |
-| `gemini-embedding-2` | Converts evidence photos into normalized 768-dimensional vectors. Similarity comparisons help match nearby reports of the same physical issue. | `GEMINI_EMBED_MODEL` | [Image embeddings](lib/ai.ts), [duplicate matching](lib/intake.ts) |
+| `gemini-embedding-2` | Converts evidence photos into normalized 768-dimensional vectors. Similarity comparisons help match nearby reports of the same physical issue, and staff can search the evidence by describing it in words on the dashboard. | `GEMINI_EMBED_MODEL` | [Image embeddings](lib/ai.ts), [duplicate matching](lib/intake.ts) |
+| `gemini-3.8-flash` (Command) | Powers the dashboard: Ask Mamdani's streamed tool-calling agent over the city record, the daily brief, and per-issue work plans (crew, cost range, resident update). | `GEMINI_AGENT_MODEL`, `GEMINI_MODEL` | [Agent](lib/command/agent.ts), [brief](lib/command/brief.ts), [work plans](lib/command/assist.ts) |
+| Google Search grounding | Outside facts for staff (weather, standards, typical costs) with cited sources, used by Ask Mamdani and the daily brief. | None | [Research](lib/command/research.ts) |
+| `gemini-2.5-flash-tts` | Mamdani's voice on the dashboard (the same Orus voice as the phone); his 3D mouth follows the audio. | `GEMINI_TTS_MODEL` | [Speech route](app/api/speak/route.ts) |
 | Lyria | Generates the waiting music played while Mamdani gets ready and the report is processed. | None; the generated audio is bundled with the app. | [Capture flow](mobile/src/CaptureScreen.tsx) loads [the music loop](mobile/assets/audio/wait-loop.wav); [audio playback](mobile/src/live/audio.ts) loops and fades it. |
 | ShieldGemma 2 | Intended model for checking whether submitted content is appropriate. | Not configured on `main`. | No ShieldGemma 2 integration is present in the current code; [photo screening](lib/screen.ts) still calls Flash-Lite. |
 
@@ -57,5 +94,15 @@ npm run dev
 ```
 
 Open [localhost:3000](http://localhost:3000). Use `.env.example` as a starting point for `.env.local` when configuring services. Without database and AI credentials, the app uses seeded memory storage and demo analysis. Live conversation requires Google Cloud credentials for Gemini Live; browser speech needs no separate service credentials.
+
+To run the city dashboard alongside it (with the API above running on port 3000):
+
+```sh
+cd dashboard
+npm install
+npm run dev
+```
+
+Open [localhost:5174](http://localhost:5174). It needs `VITE_MAPBOX_ACCESS_TOKEN` in `dashboard/.env`; see [the dashboard README](dashboard/README.md). To fill Tiger Data with a realistic month of Ottawa reports for a demo, run `npx tsx scripts/demo-city.ts` (`--remove` takes it out again, `--pulse` files one live report so you can watch the dashboard react).
 
 See [mobile setup](mobile/README.md) for the Expo app and [architecture and data flows](docs/architecture.md) for API contracts, database details, and workflow behavior.
