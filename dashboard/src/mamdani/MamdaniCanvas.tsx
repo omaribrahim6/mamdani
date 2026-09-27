@@ -1,18 +1,21 @@
 import { useEffect, useRef } from 'react';
 import { PortraitStage, type Behavior, type Gesture } from '@mayor/portrait';
 import type { Expression } from '@mayor/face';
-import { registerMayorModel } from '@mayor/models';
+import { registerMayorModel, type ModelKind } from '@mayor/models';
 import suitUrl from '@models/mamdani-suit.mrig?url';
+import constructionUrl from '@models/mamdani-construction.mrig?url';
 
 // The real 3D Mamdani (Tripo model, rigged) living in the dashboard. Same character and rig as
 // the phone app; here he watches your cursor, thinks while Gemini works and talks while it answers.
 
-let loading: Promise<void> | null = null;
-function loadModel() {
-  return (loading ??= fetch(suitUrl)
+// the two generated models: the suit, and the construction outfit (hard hat, hi-vis vest)
+const URLS: Record<ModelKind, string> = { suit: suitUrl, construction: constructionUrl };
+const loading: Partial<Record<ModelKind, Promise<void>>> = {};
+function loadModel(kind: ModelKind) {
+  return (loading[kind] ??= fetch(URLS[kind])
     .then((r) => r.arrayBuffer())
-    .then((b) => registerMayorModel('suit', b))
-    .catch((e) => console.warn('Mamdani model did not load; using the procedural one', e)));
+    .then((b) => registerMayorModel(kind, b))
+    .catch((e) => console.warn(`Mamdani ${kind} model did not load; using the procedural one`, e)));
 }
 
 class CommandStage extends PortraitStage {
@@ -30,12 +33,14 @@ export interface MamdaniProps {
   behavior?: Behavior;
   expression?: Expression;
   gesture?: { g: Gesture; key: number } | null;
-  /** follow the pointer with his head */
-  follow?: boolean;
+  /** follow the pointer with his head; 'always' keeps watching it instead of looking away when idle */
+  follow?: boolean | 'always';
   /** his voice, so the mouth follows it */
   analyser?: AnalyserNode | null;
   /** framing: head & shoulders, or down to the waist */
   framing?: 'bust' | 'waist' | 'face';
+  /** which Mamdani: the suit, or the construction outfit */
+  outfit?: ModelKind;
   className?: string;
   onReady?: () => void;
 }
@@ -48,7 +53,7 @@ const FRAMES: Record<NonNullable<MamdaniProps['framing']>, readonly [number, num
   waist: [0.92, 0.8, 2.35, 28],
 };
 
-export function MamdaniCanvas({ behavior = 'watch', expression, gesture, follow = true, framing = 'bust', analyser = null, className, onReady }: MamdaniProps) {
+export function MamdaniCanvas({ behavior = 'watch', expression, gesture, follow = true, framing = 'bust', outfit = 'suit', analyser = null, className, onReady }: MamdaniProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const stage = useRef<CommandStage | null>(null);
 
@@ -58,9 +63,9 @@ export function MamdaniCanvas({ behavior = 'watch', expression, gesture, follow 
     const s = new CommandStage(el);
     stage.current = s;
     s.shot(FRAMES[framing]);
-    void loadModel().then(() => {
+    void loadModel(outfit).then(() => {
       if (!alive) return;
-      s.show('suit');
+      s.show(outfit);
       s.act('watch');
       onReady?.();
     });
@@ -101,19 +106,22 @@ export function MamdaniCanvas({ behavior = 'watch', expression, gesture, follow 
       return;
     }
     let idle = 0;
+    const rest: [number, number] = [-0.18, -0.35];
     const onMove = (e: PointerEvent) => {
       const r = canvas.current?.getBoundingClientRect();
       if (!r) return;
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height * 0.3;
-      const yaw = Math.max(-0.7, Math.min(0.7, ((e.clientX - cx) / innerWidth) * 1.4));
-      const pitch = Math.max(-0.45, Math.min(0.35, ((e.clientY - cy) / innerHeight) * 0.9));
+      // angle from his head to the pointer, so he looks right at it wherever it is on screen
+      const hx = r.left + r.width / 2;
+      const hy = r.top + r.height * 0.3;
+      const reach = Math.max(420, r.width * 1.2);
+      const yaw = Math.max(-0.75, Math.min(0.75, Math.atan2(e.clientX - hx, reach) * 1.15));
+      const pitch = Math.max(-0.45, Math.min(0.4, Math.atan2(e.clientY - hy, reach) * 0.95));
       stage.current?.aim([pitch, yaw]);
       clearTimeout(idle);
-      // after a while without movement he goes back to looking around on his own
-      idle = window.setTimeout(() => stage.current?.aim([-0.18, -0.35]), 4000);
+      // in the corner he goes back to looking around after a while; on a big stage he keeps watching you
+      if (follow !== 'always') idle = window.setTimeout(() => stage.current?.aim(rest), 4000);
     };
-    stage.current?.aim([-0.18, -0.35]);
+    stage.current?.aim(follow === 'always' ? [0.02, 0] : rest);
     addEventListener('pointermove', onMove);
     return () => {
       removeEventListener('pointermove', onMove);

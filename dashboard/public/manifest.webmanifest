@@ -2,7 +2,7 @@
   "name": "Mamdani Command",
   "short_name": "Mamdani",
   "description": "City of Ottawa operations dashboard",
-  "start_url": "/",
+  "start_url": "/admin/",
   "display": "standalone",
   "background_color": "#ECEEE9",
   "theme_color": "#0E1011",

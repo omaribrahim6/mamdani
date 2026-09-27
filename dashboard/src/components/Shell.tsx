@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { ArrowUpRight, Bell, ChartNoAxesColumn, Download, LayoutGrid, ListChecks, Map as MapIcon, Moon, Newspaper, Search, Sparkles, Sun } from 'lucide-react';
+import { ArrowUpRight, Bell, LogOut, ChartNoAxesColumn, Download, LayoutGrid, ListChecks, Map as MapIcon, Moon, Newspaper, Search, Sparkles, Sun } from 'lucide-react';
 import { useCity } from '../lib/city';
 import { ago, category, STATUS_SHORT } from '../lib/format';
-import { go, type Page } from '../lib/router';
+import { follow, pathOf, type Page } from '../lib/router';
 import { sla } from '@shared/sla';
 
 const NAV: Array<{ page: Page; label: string; icon: typeof LayoutGrid }> = [
@@ -16,11 +17,10 @@ const NAV: Array<{ page: Page; label: string; icon: typeof LayoutGrid }> = [
 ];
 
 export function Sidebar({ page }: { page: Page }) {
-  const { issues, fresh, brief, briefState, storeKind, lastSync, offline } = useCity();
+  const { issues, brief, briefState, storeKind, lastSync, offline } = useCity();
   const root = useRef<HTMLElement>(null);
   const open = issues.filter((i) => i.status !== 'resolved').length;
   const [, tick] = useState(0);
-  const [feed, setFeed] = useState(false);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 5000);
     return () => clearInterval(t);
@@ -45,22 +45,10 @@ export function Sidebar({ page }: { page: Page }) {
         </div>
       </div>
 
-      <div className="user side-anim">
-        <div className="user-av">OS</div>
-        <div className="user-meta">
-          <b>Operations desk</b>
-          <span>Public Works & Environmental</span>
-        </div>
-        <button className="icon-btn ghost user-bell" aria-label={`${fresh.size} new reports`} onClick={() => setFeed((f) => !f)}>
-          <Bell size={16} />
-          {fresh.size > 0 && <i className="bell-dot">{fresh.size}</i>}
-        </button>
-      </div>
-      {feed && <Feed onClose={() => setFeed(false)} />}
 
       <nav className="nav side-anim">
         {NAV.map(({ page: p, label, icon: Icon }) => (
-          <a key={p} href={`#/${p}`} className={`nav-tile ${page === p ? 'on' : ''} ${p === 'command' ? 'wide' : ''}`}>
+          <a key={p} href={pathOf(p)} onClick={follow} className={`nav-tile ${page === p ? 'on' : ''} ${p === 'command' ? 'wide' : ''}`}>
             <Icon size={p === 'command' ? 20 : 18} strokeWidth={1.7} />
             <span>{label}</span>
             {p === 'queue' && <em className="nav-count num">{open}</em>}
@@ -70,7 +58,7 @@ export function Sidebar({ page }: { page: Page }) {
 
       <div className="side-fill" />
 
-      <a href="#/brief" className={`brief-teaser side-anim ${page === 'brief' ? 'on' : ''}`}>
+      <a href={pathOf('brief')} onClick={follow} className={`brief-teaser side-anim ${page === 'brief' ? 'on' : ''}`}>
         <div className="brief-grain" />
         <div className="brief-top">
           <span className="brief-tag">
@@ -105,7 +93,16 @@ export function Sidebar({ page }: { page: Page }) {
 }
 
 export function Topbar({ onSearch }: { onSearch: () => void }) {
-  const { issues } = useCity();
+  const { issues, fresh } = useCity();
+  const [feed, setFeed] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const { user, logout } = useAuth0();
+  const initials = (user?.name ?? user?.email ?? '?')
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join('');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (document.documentElement.dataset.theme as 'dark') || 'light');
 
   const flip = () => {
@@ -153,15 +150,32 @@ export function Topbar({ onSearch }: { onSearch: () => void }) {
         <kbd>Ctrl K</kbd>
       </button>
       <div className="top-actions">
+        <button className="icon-btn top-bell" aria-label={`City activity, ${fresh.size} new reports`} title="City activity" onClick={() => (setMenu(false), setFeed((f) => !f))}>
+          <Bell size={16} />
+          {fresh.size > 0 && <i className="bell-dot">{fresh.size}</i>}
+        </button>
+        {feed && <Feed onClose={() => setFeed(false)} />}
         <button className="icon-btn" onClick={flip} aria-label="Toggle theme">
           {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
         </button>
         <button className="btn soft" onClick={exportCsv}>
           <Download size={16} /> Export
         </button>
-        <a className="btn primary" href="#/brief">
+        <a className="btn primary" href={pathOf('brief')} onClick={follow}>
           <Newspaper size={16} /> Today’s brief
         </a>
+        <button className="top-account" aria-label="Account" title={user?.email ?? 'Account'} onClick={() => (setFeed(false), setMenu((m) => !m))}>
+          {user?.picture ? <img src={user.picture} alt="" referrerPolicy="no-referrer" /> : <span>{initials}</span>}
+        </button>
+        {menu && (
+          <div className="account-menu" onMouseLeave={() => setMenu(false)}>
+            <b>{user?.name ?? 'Signed in'}</b>
+            {user?.email && user.email !== user.name && <span>{user.email}</span>}
+            <button onClick={() => logout({ logoutParams: { returnTo: location.origin } })}>
+              <LogOut size={14} /> Sign out
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
@@ -175,7 +189,7 @@ function Feed({ onClose }: { onClose: () => void }) {
     .sort((a, b) => b.at - a.at)
     .slice(0, 30);
   useEffect(() => {
-    const off = (e: MouseEvent) => !(e.target as HTMLElement).closest('.feed, .user-bell') && onClose();
+    const off = (e: MouseEvent) => !(e.target as HTMLElement).closest('.feed, .top-bell') && onClose();
     addEventListener('mousedown', off);
     return () => removeEventListener('mousedown', off);
   }, [onClose]);

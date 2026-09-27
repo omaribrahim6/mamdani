@@ -249,10 +249,13 @@ export class PortraitStage extends RigStage {
     let browLift = 0;
     let browFurrow = 0;
     switch (this.behavior) {
-      case 'watch':
-        y += this.saccade.dx;
-        p += this.saccade.dy;
+      case 'watch': {
+        // darts are smaller when he's watching something specific (the dashboard's cursor)
+        const dart = this.aimAt ? 0.25 : 1;
+        y += this.saccade.dx * dart;
+        p += this.saccade.dy * dart;
         break;
+      }
       case 'listen':
         // you're talking: small attentive nods
         y += this.saccade.dx * 0.4;

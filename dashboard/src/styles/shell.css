@@ -48,70 +48,6 @@
   margin-top: 4px;
 }
 
-.user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 8px 8px 8px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-}
-
-.user-av {
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  background: var(--panel-2);
-  color: var(--ink-2);
-}
-
-.user-meta {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.user-meta b {
-  font-weight: 500;
-  font-size: 13px;
-}
-
-.user-meta span {
-  font-size: 11px;
-  color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.user-bell {
-  position: relative;
-  border: 0;
-}
-
-.bell-dot {
-  position: absolute;
-  top: 4px;
-  right: 3px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 10px;
-  font-style: normal;
-  font-weight: 600;
-  display: grid;
-  place-items: center;
-}
-
 .nav {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -320,10 +256,98 @@
 }
 
 .top-actions {
+  position: relative;
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.top-bell {
+  position: relative;
+}
+
+.bell-dot {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+}
+
+.top-account {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.top-account img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-menu {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  z-index: 40;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-pop);
+  animation: msg-in 0.25s var(--ease) both;
+}
+
+.account-menu b {
+  font-weight: 500;
+  font-size: 13.5px;
+}
+
+.account-menu span {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-bottom: 8px;
+}
+
+.account-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.account-menu button:hover {
+  background: var(--panel-2);
+  color: var(--bad);
 }
 
 .top-actions .btn {
@@ -357,11 +381,11 @@
 
 .feed {
   position: absolute;
-  top: 150px;
-  left: 16px;
-  right: 16px;
-  bottom: 16px;
-  z-index: 10;
+  top: 52px;
+  right: 0;
+  width: 380px;
+  max-height: min(560px, 70vh);
+  z-index: 40;
   display: flex;
   flex-direction: column;
   background: var(--panel);

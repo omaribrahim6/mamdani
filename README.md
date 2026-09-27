@@ -103,6 +103,6 @@ npm install
 npm run dev
 ```
 
-Open [localhost:5174](http://localhost:5174). It needs `VITE_MAPBOX_ACCESS_TOKEN` in `dashboard/.env`; see [the dashboard README](dashboard/README.md). To fill Tiger Data with a realistic month of Ottawa reports for a demo, run `npx tsx scripts/demo-city.ts` (`--remove` takes it out again, `--pulse` files one live report so you can watch the dashboard react).
+Open [localhost:5173](http://localhost:5173) and sign in with Auth0; the dashboard lives under `/admin/`. It needs `VITE_MAPBOX_ACCESS_TOKEN`, `VITE_AUTH0_DOMAIN` and `VITE_AUTH0_CLIENT_ID` in `dashboard/.env`; see [the dashboard README](dashboard/README.md). To fill Tiger Data with a realistic month of Ottawa reports for a demo, run `npx tsx scripts/demo-city.ts` (`--remove` takes it out again, `--pulse` files one live report so you can watch the dashboard react).
 
 See [mobile setup](mobile/README.md) for the Expo app and [architecture and data flows](docs/architecture.md) for API contracts, database details, and workflow behavior.

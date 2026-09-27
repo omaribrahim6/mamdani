@@ -4,6 +4,7 @@ import { ArrowUpDown, Check, ChevronRight, Users } from 'lucide-react';
 import type { Issue, Status } from '@shared/types';
 import { sla } from '@shared/sla';
 import { useCity } from '../lib/city';
+import { go } from '../lib/router';
 import { ago, category, hood, NEXT_STATUS, STATUS_SHORT, street } from '../lib/format';
 import { CategoryIcon, PriorityMeter, SlaChip, StatusLabel } from './ui';
 import './queue.css';
@@ -118,7 +119,7 @@ export function QueueTable({ issues, limit, selectable = false, query = '', titl
             className="btn small primary"
             onClick={() => {
               city.show([...picked], `Crew run · ${picked.size} stops`, 'route');
-              location.hash = '/map';
+              go('map');
             }}
           >
             Plan crew route

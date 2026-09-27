@@ -38,7 +38,7 @@ export default defineConfig({
   },
   assetsInclude: ['**/*.mrig'],
   server: {
-    port: 5174,
+    port: 5173,
     strictPort: true,
     fs: { allow: [up('..')] },
     proxy: { '/api': { target: API, changeOrigin: true } },

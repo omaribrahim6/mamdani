@@ -1,0 +1,262 @@
+.login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--gap);
+  background: var(--bg);
+}
+
+.lg-card {
+  width: min(1240px, 100%);
+  min-height: min(720px, calc(100vh - 32px));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: var(--gap);
+  padding: var(--gap);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+}
+
+.lg-left {
+  display: flex;
+  flex-direction: column;
+  padding: 22px 26px 16px;
+}
+
+.lg-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lg-brand img {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  object-fit: cover;
+}
+
+.lg-copy {
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 40px 0;
+}
+
+.lg-kicker {
+  display: inline-flex;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.lg-copy h1 {
+  margin: 0;
+  font-size: clamp(38px, 4.4vw, 62px);
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+  font-weight: 500;
+}
+
+.lg-copy h1 span {
+  color: var(--ink-3);
+}
+
+.lg-copy p {
+  margin: 0;
+  max-width: 470px;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.lg-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 22px;
+  margin-top: 6px;
+  border-radius: 16px;
+  background: var(--black);
+  color: var(--on-black);
+  font-size: 15px;
+  font-weight: 500;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s;
+}
+
+.lg-cta:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -14px rgba(0, 0, 0, 0.55);
+}
+
+.lg-cta:disabled {
+  opacity: 0.7;
+}
+
+.lg-error {
+  color: var(--bad) !important;
+  font-size: 13px !important;
+}
+
+.lg-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* the right half: Mamdani in his hi-vis sun, with live cards floating over it */
+.lg-right {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: calc(var(--radius-xl) - 8px);
+  min-height: 460px;
+}
+
+.lg-sun {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: radial-gradient(120% 95% at 50% 100%, #ffb070 0%, #ff7a2a 38%, #ff5a1f 62%, #e8481a 100%);
+}
+
+.lg-rings {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: repeating-radial-gradient(circle at 50% 104%, transparent 0 46px, rgba(255, 255, 255, 0.12) 46px 47px);
+}
+
+.lg-canvas {
+  position: absolute;
+  bottom: -60px;
+  width: min(520px, 100%);
+  height: 108%;
+  left: 53%;
+  transform: translateX(-50%);
+}
+
+.lg-float {
+  position: absolute;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  color: #0e1011;
+  border-radius: 18px;
+  box-shadow: 0 20px 44px -20px rgba(80, 20, 0, 0.55);
+}
+
+.lg-stats {
+  top: 26px;
+  left: 26px;
+  display: flex;
+  gap: 18px;
+  padding: 14px 18px;
+}
+
+.lg-stats div {
+  display: flex;
+  flex-direction: column;
+}
+
+.lg-stats b {
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.lg-stats span {
+  font-size: 11.5px;
+  color: #4b5155;
+}
+
+.lg-issue {
+  left: 26px;
+  bottom: 84px;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.lg-issue-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  color: #4b5155;
+  margin-bottom: 4px;
+}
+
+.lg-prio {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fff0e6;
+  color: #ff5a1f;
+  font-weight: 600;
+}
+
+.lg-issue b {
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.lg-issue > span {
+  font-size: 12px;
+  color: #4b5155;
+}
+
+.lg-live {
+  left: 26px;
+  bottom: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.lg-checking {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--ink-2);
+}
+
+.lg-checking img {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  animation: lg-bob 1.2s ease-in-out infinite;
+}
+
+@keyframes lg-bob {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (max-width: 900px) {
+  .lg-card {
+    grid-template-columns: 1fr;
+  }
+  .lg-right {
+    min-height: 380px;
+  }
+}

@@ -11,10 +11,24 @@ npm run dev
 # terminal 2
 cd dashboard
 npm install
-npm run dev        # http://localhost:5174
+npm run dev        # http://localhost:5173
 ```
 
-`dashboard/.env` needs `VITE_MAPBOX_ACCESS_TOKEN`. `/api` is proxied to `http://localhost:3000`; set `API_PROXY` to use a deployment instead. A standalone deployment sets `VITE_API_URL` to the API's origin (the API sends CORS headers).
+`dashboard/.env` needs `VITE_MAPBOX_ACCESS_TOKEN`, `VITE_AUTH0_DOMAIN` and `VITE_AUTH0_CLIENT_ID`. `/api` is proxied to `http://localhost:3000`; set `API_PROXY` to use a deployment instead. A standalone deployment sets `VITE_API_URL` to the API's origin (the API sends CORS headers).
+
+## Sign-in and routes
+
+City staff sign in with Auth0 (the same tenant and app as the `admin` branch). `/` is the sign-in page; everything else lives under `/admin/`:
+
+| Path | Page |
+| --- | --- |
+| `/admin/` | Command |
+| `/admin/map` | Live map |
+| `/admin/queue` | Work queue |
+| `/admin/analytics` | Analytics |
+| `/admin/brief` | Today's brief |
+
+Signed in and on `/`, you go straight to `/admin/`. Open an `/admin/` link while signed out and you're sent to `/`, then back to that page after signing in. The Auth0 application must list each dashboard origin (`http://localhost:5173`, `https://mamdani-command.vercel.app`) under Allowed Callback URLs, Allowed Logout URLs and Allowed Web Origins.
 
 ## What's on it
 
