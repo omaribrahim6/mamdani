@@ -134,7 +134,8 @@ export class RigStage {
   protected setRig(rig: MayorRig | null) {
     if (this.rig) this.scene.remove(this.rig.root);
     this.rig = rig;
-    this.lids = rig ? (rig.makeLids?.() ?? addLids(rig)) : [];
+    // a rig with a sculpted face blinks with its blink morphs; the rest get separate lids
+    this.lids = rig && !rig.setFace ? (rig.makeLids?.() ?? addLids(rig)) : [];
     this.springs = null; // a new body starts from its own pose, not springing out of the old one
     this.feeling = 'NEUTRAL';
     if (rig) this.scene.add(rig.root);
@@ -364,13 +365,18 @@ export class RigStage {
       browDown1: clamp(look.browDown1 ?? 0),
       squint0: clamp(look.squint0 ?? 0),
       squint1: clamp(look.squint1 ?? 0),
+      blink0: 0,
+      blink1: 0,
     };
     FACE_SHAPES.forEach((k, i) => (this.face[k] = clamp(this.faceSprings[i].update(dt, target[k]))));
+    // blinks are fast (~150 ms) and must reach fully shut: set directly, not through a spring
+    this.face.blink0 = this.face.blink1 = this.blinkClosed;
     rig.setFace!(this.face);
   }
 
+  private blinkClosed = 0;
+
   private blink(now: number) {
-    if (!this.lids.length) return;
     if (this.blinkT < 0 && now > this.nextBlink) {
       this.blinkT = now;
       // mostly single blinks, the odd double
@@ -384,6 +390,7 @@ export class RigStage {
       if (t >= 1) this.blinkT = -1;
     }
 
+    this.blinkClosed = closed;
     for (const lid of this.lids) {
       lid.visible = closed > 0.05;
       lid.scale.y = lid.userData.sy * (0.15 + closed * 0.85);
