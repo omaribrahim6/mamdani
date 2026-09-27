@@ -3,6 +3,7 @@ import { CityProvider } from './lib/city';
 import { useAuth0 } from '@auth0/auth0-react';
 import { isAdmin, navigate, pathOf, usePage, usePath } from './lib/router';
 import { Checking, Login } from './auth/Login';
+import { Feed } from './social/Feed';
 import { Sidebar, Topbar } from './components/Shell';
 import { TipLayer } from './components/ui';
 import { Toasts } from './components/Toasts';
@@ -25,7 +26,7 @@ export function App() {
   const admin = isAdmin(path);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || path.startsWith('/feed') || location.hostname.startsWith('mamdani-social')) return;
     if (isAuthenticated && !admin) navigate(pathOf('command'), true);
     if (!isAuthenticated && path !== '/') {
       if (admin) sessionStorage.setItem('mamdani-return', path);
@@ -33,6 +34,8 @@ export function App() {
     }
   }, [isLoading, isAuthenticated, admin, path]);
 
+  // Mamdani Social: public, no sign-in — /feed here, or the whole site on its own domain
+  if (path.startsWith('/feed') || location.hostname.startsWith('mamdani-social')) return <Feed />;
   if (isLoading) return <Checking />;
   if (!isAuthenticated) {
     if (path !== '/') return <Checking label="Taking you to sign in…" />;
