@@ -9,7 +9,7 @@ import { useCity } from '../lib/city';
 import { CATEGORIES, category, ICON, STATUS_SHORT, street } from '../lib/format';
 import { go } from '../lib/router';
 import { optimize, type Trip } from './route';
-import { registerMap, sendMamdani, useDivePhase } from '../mamdani/diveStore';
+import { registerMap } from '../mamdani/diveStore';
 import './map.css';
 
 // The city on Mapbox Standard (monochrome, 3D buildings, day/night with the theme). Issues are
@@ -56,7 +56,6 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
   const points = activity ?? city.activity;
   const pickRef = useRef(onPick);
   pickRef.current = onPick;
-  const dive = useDivePhase();
 
   // ── the map itself ──
   useEffect(() => {
@@ -354,10 +353,6 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
           <Maximize2 size={16} />
         </button>
       )}
-      <button className="dive-btn" onClick={sendMamdani} disabled={dive !== 'idle'} title="Mamdani jumps into the map and goes to the potholes">
-        <img src="/mamdani-face.png" alt="" />
-        {dive === 'idle' ? 'Send Mamdani' : 'Mamdani’s out'}
-      </button>
       <div className="map-zoom">
         <button onClick={() => zoom(1)} aria-label="Zoom in">
           <Plus size={16} />

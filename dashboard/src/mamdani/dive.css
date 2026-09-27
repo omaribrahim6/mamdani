@@ -1,5 +1,5 @@
-/* "Send Mamdani": the leap layer over the whole dashboard, his speech bubble on the map, and the
-   pins he spots and flags. */
+/* The dive (filmed in the dev lab, dive.html): the leap layer over the whole dashboard, his speech
+   bubble on the map, and the pins he spots and flags. */
 
 .dive-leap {
   position: fixed;
@@ -87,42 +87,4 @@
   color: #fff;
   font: 800 12px/1 var(--font);
   box-shadow: 0 0 0 2px #fff;
-}
-
-/* the "Send Mamdani" button on the map */
-.dive-btn {
-  position: absolute;
-  z-index: 3;
-  right: 14px;
-  top: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px 8px 8px;
-  border-radius: 999px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-pop);
-  font: 600 13px/1 var(--font);
-  color: var(--ink);
-  cursor: pointer;
-  transition: transform 0.25s var(--ease);
-}
-.dive-btn:hover {
-  transform: translateY(-1px);
-}
-.dive-btn img {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-}
-.dive-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.citymap.compact .dive-btn {
-  top: auto;
-  bottom: 14px;
-  right: 60px;
 }

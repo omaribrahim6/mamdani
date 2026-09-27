@@ -9,7 +9,6 @@ import { Toasts } from './components/Toasts';
 import { IssueDrawer } from './components/IssueDrawer';
 import { Palette } from './components/Palette';
 import { Dock } from './mamdani/Dock';
-import { Dive } from './mamdani/Dive';
 import { CommandPage } from './pages/Command';
 
 const MapPage = lazy(() => import('./pages/MapPage'));
@@ -50,7 +49,7 @@ export function App() {
   return <Dashboard />;
 }
 
-export function Dashboard() {
+export function Dashboard({ children }: { children?: React.ReactNode }) {
   const page = usePage();
   const [palette, setPalette] = useState(false);
 
@@ -89,7 +88,7 @@ export function Dashboard() {
       <Palette open={palette} onClose={() => setPalette(false)} />
       <Toasts />
       <Dock />
-      <Dive />
+      {children}
       <TipLayer />
     </CityProvider>
   );
