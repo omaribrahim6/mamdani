@@ -47,6 +47,19 @@
         "API_PROXY": "https://mamdani.vercel.app"
       },
       "port": 5174
+    },
+    {
+      "name": "mobile-web-8082",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "mobile/node_modules/expo/bin/cli",
+        "start",
+        "mobile",
+        "--web",
+        "--port",
+        "8082"
+      ],
+      "port": 8082
     }
   ]
 }

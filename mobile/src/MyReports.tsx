@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { FlatList, Modal, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Platform, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { category } from '../../lib/categories';
 import type { Issue, Status } from '../../lib/types';
 import { getIssue } from './api';
+import { CategoryGlyph } from './categoryIcons';
 import { loadMine, type MyReport } from './mine';
-import { Button } from './ui';
-import { C, F, T } from './theme';
+import { D, F } from './theme';
+
+// Styled like Mamdani Command (the dashboard): sage canvas, white cards, the category icon tile,
+// and the issue drawer's four-step stepper (done in ink, the current step in hi-vis orange).
 
 const STEPS: Array<{ status: Status; label: string }> = [
   { status: 'new', label: 'Reported' },
@@ -14,6 +17,14 @@ const STEPS: Array<{ status: Status; label: string }> = [
   { status: 'in_progress', label: 'Being fixed' },
   { status: 'resolved', label: 'Fixed' },
 ];
+
+/** A colour mixed toward white: the dashboard's `color-mix(in srgb, var(--c) 12%, var(--panel))`. */
+function tint(hex: string, amount = 0.12) {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (c: number) => Math.round(255 + (c - 255) * amount);
+  const r = mix((n >> 16) & 255), g = mix((n >> 8) & 255), b = mix(n & 255);
+  return `rgb(${r},${g},${b})`;
+}
 
 /** Everything this phone reported, following the city's status live. */
 export function MyReports({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -52,9 +63,14 @@ export function MyReports({ visible, onClose }: { visible: boolean; onClose: () 
           <Text style={styles.title} accessibilityRole="header">
             Your reports
           </Text>
-          <Button variant="ghost" onPress={onClose} style={{ minHeight: 40 }}>
-            Close
-          </Button>
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            style={({ pressed }) => [styles.close, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={styles.closeText}>Close</Text>
+          </Pressable>
         </View>
         <FlatList
           data={mine}
@@ -62,6 +78,7 @@ export function MyReports({ visible, onClose }: { visible: boolean; onClose: () 
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
+              tintColor={D.ink3}
               onRefresh={async () => {
                 setRefreshing(true);
                 await refresh(mine);
@@ -70,7 +87,9 @@ export function MyReports({ visible, onClose }: { visible: boolean; onClose: () 
             />
           }
           ListEmptyComponent={
-            <Text style={styles.empty}>Nothing yet. Point your camera at something broken and say “Mamdani, fix this.”</Text>
+            <View style={styles.card}>
+              <Text style={styles.empty}>Nothing yet. Point your camera at something broken and say “Mamdani, fix this.”</Text>
+            </View>
           }
           renderItem={({ item: m }) => {
             const issue = live[m.issueId];
@@ -78,29 +97,37 @@ export function MyReports({ visible, onClose }: { visible: boolean; onClose: () 
             const reached = STEPS.findIndex((x) => x.status === status);
             const cat = category(m.category);
             return (
-              <View style={styles.item} accessible accessibilityLabel={`${issue?.title ?? m.title}. ${STEPS[reached].label}.`}>
-                <View style={[styles.catBar, { backgroundColor: cat.color }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.itemTitle}>{issue?.title ?? m.title}</Text>
-                  <Text style={styles.meta}>
-                    {m.address}. Work order {m.issueId}
-                    {issue && issue.reports > 1 ? `, ${issue.reports} reports` : ''}
-                  </Text>
-                  <View style={styles.steps}>
-                    {STEPS.map((st, i) => (
-                      <View
-                        key={st.status}
-                        style={[styles.step, i <= reached && styles.stepDone, i === reached && { borderTopColor: C.ok }]}
-                      >
-                        <Text style={[styles.stepText, i <= reached && { color: C.asphalt }]}>{st.label}</Text>
-                      </View>
-                    ))}
+              <View style={styles.card} accessible accessibilityLabel={`${issue?.title ?? m.title}. ${STEPS[reached].label}.`}>
+                <View style={styles.row}>
+                  <View style={[styles.catIco, { backgroundColor: tint(cat.color) }]}>
+                    <CategoryGlyph id={m.category} size={20} color={cat.color} />
                   </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.itemTitle}>{issue?.title ?? m.title}</Text>
+                    <Text style={styles.meta}>
+                      {m.address}. Work order {m.issueId}
+                      {issue && issue.reports > 1 ? `, ${issue.reports} reports` : ''}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.stepper}>
+                  {STEPS.map((st, i) => {
+                    const done = i < reached;
+                    const now = i === reached;
+                    return (
+                      <View key={st.status} style={styles.step}>
+                        <View style={[styles.bar, done && styles.barDone, now && styles.barNow]} />
+                        <Text style={[styles.stepText, now && styles.stepTextNow]} numberOfLines={2}>
+                          {st.label}
+                        </Text>
+                      </View>
+                    );
+                  })}
                 </View>
               </View>
             );
           }}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 24, gap: 12 }}
         />
       </SafeAreaView>
     </Modal>
@@ -108,16 +135,39 @@ export function MyReports({ visible, onClose }: { visible: boolean; onClose: () 
 }
 
 const styles = StyleSheet.create({
-  sheet: { flex: 1, backgroundColor: C.paper },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  title: { fontFamily: F.stencil, fontSize: 36, lineHeight: 38, color: C.asphalt, textTransform: 'uppercase', paddingTop: 4 },
-  empty: { fontFamily: F.ui, fontSize: T.lg, lineHeight: 28, color: C.curb, marginTop: 8 },
-  item: { flexDirection: 'row', gap: 14, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: C.paperLine },
-  catBar: { width: 6, borderRadius: 3 },
-  itemTitle: { fontFamily: F.uiBlack, fontSize: T.lg, lineHeight: 24, color: C.asphalt },
-  meta: { fontFamily: F.ui, fontSize: T.sm, color: C.curb, marginTop: 2, marginBottom: 12 },
-  steps: { flexDirection: 'row', gap: 4 },
-  step: { flex: 1, paddingTop: 8, borderTopWidth: 4, borderTopColor: C.paperLine },
-  stepDone: { borderTopColor: C.asphalt },
-  stepText: { fontFamily: F.uiSemi, fontSize: T.xs, color: C.curb },
+  sheet: { flex: 1, backgroundColor: D.bg },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14 },
+  // the dashboard's page heading: large, light, tightly set
+  title: { fontFamily: F.ui, fontSize: 34, lineHeight: 38, letterSpacing: -1.2, color: D.ink, paddingTop: 4 },
+  // .btn.soft
+  close: { height: 38, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: D.line, backgroundColor: D.panel, alignItems: 'center', justifyContent: 'center' },
+  closeText: { fontFamily: F.uiSemi, fontSize: 13, color: D.ink, paddingTop: 2 },
+  // .card
+  card: {
+    backgroundColor: D.panel,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: D.line,
+    padding: 16,
+    gap: 16,
+    ...Platform.select({
+      ios: { shadowColor: D.ink, shadowOpacity: 0.08, shadowRadius: 18, shadowOffset: { width: 0, height: 10 } },
+      android: { elevation: 1 },
+      default: {},
+    }),
+  },
+  empty: { fontFamily: F.ui, fontSize: 15, lineHeight: 22, color: D.ink2 },
+  row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  // .cat-ico
+  catIco: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  itemTitle: { fontFamily: F.uiSemi, fontSize: 16, lineHeight: 21, color: D.ink },
+  meta: { fontFamily: F.ui, fontSize: 13, lineHeight: 18, color: D.ink2, marginTop: 2 },
+  // .stepper
+  stepper: { flexDirection: 'row', gap: 6 },
+  step: { flex: 1, gap: 8 },
+  bar: { height: 6, borderRadius: 3, backgroundColor: D.panel2, borderWidth: 1, borderColor: D.line },
+  barDone: { backgroundColor: D.ink, borderColor: D.ink },
+  barNow: { backgroundColor: D.accent, borderColor: D.accent },
+  stepText: { fontFamily: F.ui, fontSize: 11.5, lineHeight: 15, color: D.ink3 },
+  stepTextNow: { fontFamily: F.uiSemi, color: D.ink },
 });

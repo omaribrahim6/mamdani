@@ -608,6 +608,7 @@ export function CaptureScreen() {
         dispatch({ type: 'SHUTTER', snapshot: { sessionId: newSessionId(), photo, lat: where.lat, lng: where.lng, capturedAt: Date.now(), context: '' } });
       },
       next: () => dispatch({ type: 'NEW_REPORT' }),
+      reports: () => setMineOpen(true),
       state: () => stateRef.current,
       stages: () => ({ portrait: portrait.current, scene: scene.current }),
     };

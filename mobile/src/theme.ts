@@ -15,6 +15,21 @@ export const C = {
   access: '#1c6dd8',
 };
 
+/** Mamdani Command's tokens (dashboard/src/styles/tokens.css): soft sage canvas, white cards, one
+ *  black ink, hi-vis orange as the only accent, status colours only for status. */
+export const D = {
+  bg: '#eceee9',
+  panel: '#ffffff',
+  panel2: '#f5f6f3',
+  ink: '#0e1011',
+  ink2: '#4b5155',
+  ink3: '#8a9094',
+  line: '#e4e6e1',
+  line2: '#d6d9d3',
+  accent: '#ff6a13',
+  status: { new: '#ff6a13', assigned: '#2f6bff', in_progress: '#d99a00', resolved: '#12995a' },
+};
+
 export const F = {
   stencil: 'BigShouldersStencil_800ExtraBold',
   stencilBlack: 'BigShouldersStencil_900Black',
