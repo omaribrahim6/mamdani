@@ -54,6 +54,24 @@ async function streets(a: LngLat, b: LngLat): Promise<LngLat[]> {
   return [a, b];
 }
 
+/** The path, ending `d` metres before its last point. */
+function shortOf(path: LngLat[], d: number): LngLat[] {
+  const lens = path.slice(1).map((p, i) => metres(path[i], p));
+  let left = lens.reduce((a, b) => a + b, 0) - d;
+  if (left < 3) return path;
+  const out: LngLat[] = [path[0]];
+  for (let i = 0; i < lens.length; i++) {
+    if (left <= lens[i]) {
+      const u = left / lens[i];
+      out.push([path[i][0] + (path[i + 1][0] - path[i][0]) * u, path[i][1] + (path[i + 1][1] - path[i][1]) * u]);
+      return out;
+    }
+    left -= lens[i];
+    out.push(path[i + 1]);
+  }
+  return out;
+}
+
 function ring(center: LngLat, r: number) {
   const pts: LngLat[] = [];
   for (let k = 0; k <= 72; k++) pts.push(offset(center, (k / 72) * 360, r));
@@ -176,7 +194,7 @@ export function Dive() {
       };
 
       // ── his view: the camera comes down over his shoulder ──
-      const chase = (at: LngLat, hd: number) => ({ center: offset(at, hd, HEIGHT * 2.8), zoom: 18.75, pitch: 74, bearing: hd });
+      const chase = (at: LngLat, hd: number) => ({ center: offset(at, hd, HEIGHT * 2.3), zoom: 19.0, pitch: 72, bearing: hd });
       map.easeTo({ ...chase(landing, firstHeading), duration: 1500, easing: (t) => 1 - (1 - t) ** 3 });
       await wait(900);
       await mm.lookAround();
@@ -211,7 +229,7 @@ export function Dive() {
           onComplete: () => res(),
         }),
       );
-      cleanups.push(() => stops.forEach((s) => pins.get(s.id)?.el.classList.remove('spotted', 'flagged')));
+      cleanups.push(() => stops.forEach((s) => pins.get(s.id)?.el.classList.remove('spotted', 'flagged', 'working')));
       map.setPaintProperty('mamdani-scan', 'line-opacity', 0);
       const where = street(stops[0].address);
       await say(stops.length > 1 ? `${stops.length} ${kind}s around ${where}. On it.` : `A ${kind} on ${where}. On it.`, 1500);
@@ -221,7 +239,8 @@ export function Dive() {
       let hd = firstHeading;
       for (let k = 0; k < stops.length; k++) {
         if (!alive()) return finish();
-        const path = legs[k];
+        // stop a few metres short, so the pothole (and its pin) sit just past him, not under him
+        const path = shortOf(legs[k], 9);
         const len = path.slice(1).reduce((a, p, i) => a + metres(path[i], p), 0);
         const speed = Math.max(30, len / 4.5); // a few seconds a stretch, whatever the distance
         await mm.run(path, speed, (at, h2) => {
@@ -230,21 +249,38 @@ export function Dive() {
         });
         const s = stops[k];
         const spot: LngLat = [s.lng, s.lat];
-        // swing round beside him for the flag
-        map.easeTo({ center: offset(spot, hd, HEIGHT * 0.4), zoom: 18.9, pitch: 60, bearing: hd - 55, duration: 700 });
-        await mm.plantFlag(spot, () => pins.get(s.id)?.el.classList.add('flagged'));
+        // swing round beside him for the flag; the pin steps back while he works on it
+        const pin = pins.get(s.id)?.el;
+        pin?.classList.add('working');
+        map.easeTo({ center: offset(mm.at, hd, HEIGHT * 0.5), zoom: 18.7, pitch: 52, bearing: hd - 60, duration: 700 });
+        await mm.plantFlag(spot, () => pin?.classList.add('flagged'));
         await say(`#${s.id} flagged.`, 750);
+        // the last one stays faded: he's standing at it for the wave
+        pin?.classList.remove('spotted');
+        if (k < stops.length - 1) pin?.classList.remove('working');
         await say(null);
       }
 
       // ── done: pull up to see the flags, wave, and head home ──
-      const all: LngLat[] = [landing, ...stops.map((s) => [s.lng, s.lat] as LngLat)];
-      const b = all.reduce((bb, c) => bb.extend(c), new mapboxgl.LngLatBounds(all[0], all[0]));
-      map.fitBounds(b, { padding: { top: 160, bottom: 200, left: 160, right: 160 }, maxZoom: 17.6, pitch: 55, bearing: map.getBearing(), duration: 1600 });
+      // pull back just enough to see him by his last flag (the whole run is a kilometre; he'd be a speck)
+      map.easeTo({ center: mm.at, zoom: 18.25, pitch: 58, bearing: map.getBearing() + 25, duration: 1600, easing: (t) => 1 - (1 - t) ** 3 });
       await wait(900);
       void mm.wave((map.getBearing() + 180) % 360);
       await say(stops.length > 1 ? `${stops.length} flagged. Crews are on the way.` : 'Flagged. The crew is on the way.', 2600);
       await say(null);
+
+      // ── home: he leaps back out of the map and into his corner ──
+      const r2 = box.getBoundingClientRect();
+      const f2 = mm.screen(mm.at, 0);
+      const h2 = mm.screen(mm.at, HEIGHT);
+      canvas.style.display = 'block'; // before the stage sizes itself to the canvas
+      const home = new LeapStage(canvas);
+      cleanups.push(() => {
+        home.dispose();
+        canvas.style.display = 'none';
+      });
+      mm.lift();
+      await home.leapHome({ x: r2.left + f2.x, y: r2.top + f2.y }, Math.max(24, f2.y - h2.y), { x: innerWidth - 84, y: innerHeight + 30 }, Math.min(420, innerHeight * 0.42), ['construction', 'suit']);
       finish();
     })().catch((e) => {
       console.warn('Mamdani dive stopped', e);

@@ -88,3 +88,11 @@
   font: 800 12px/1 var(--font);
   box-shadow: 0 0 0 2px #fff;
 }
+
+/* he's standing at it: the pin steps back so it doesn't cover him */
+.pin.working {
+  opacity: 0.18;
+}
+.pin.working .pin-card {
+  opacity: 0;
+}

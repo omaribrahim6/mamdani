@@ -116,6 +116,56 @@ export class LeapStage extends RigStage {
     this.flash.material.opacity = 0;
   }
 
+  /** The reverse: from his spot on the map, up and over, back down into the corner in his suit. */
+  async leapHome(from: Pt, fromPx: number, to: Pt, toPx: number, outfits: [ModelKind, ModelKind], onSuit?: () => void) {
+    let rig = createMayor(outfits[0]);
+    this.setRig(rig);
+    const place = (p: Pt, px: number, depth: number) => {
+      rig.root.position.copy(this.at(p, depth));
+      rig.root.scale.setScalar(this.scaleFor(px, depth));
+    };
+    place(from, fromPx, -2);
+    rig.root.rotation.y = Math.PI * 0.85;
+    // crouch and spring
+    await this.tween(0.25, (t) => {
+      rig.body.rotation.x = lerp(0, 0.4, ease(t));
+      rig.legL.rotation.x = rig.legR.rotation.x = lerp(0, -0.6, ease(t));
+    });
+    const peak = { x: lerp(from.x, to.x, 0.45), y: Math.min(from.y, to.y) - Math.max(180, Math.abs(from.x - to.x) * 0.3) };
+    let suited = false;
+    await this.tween(1.2, (t) => {
+      const u = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      const p = { x: (1 - u) ** 2 * from.x + 2 * (1 - u) * u * peak.x + u * u * to.x, y: (1 - u) ** 2 * from.y + 2 * (1 - u) * u * peak.y + u * u * to.y };
+      place(p, lerp(fromPx, toPx, u ** 0.8), lerp(-2, 0, u));
+      // he turns round to us on the way, waves on the way down
+      rig.root.rotation.y = lerp(Math.PI * 0.85, -0.4, Math.min(1, u * 1.5));
+      rig.root.rotation.z = Math.sin(u * Math.PI) * 0.2;
+      rig.body.rotation.x = lerp(0.4, 0, Math.min(1, u * 3));
+      rig.legL.rotation.x = -0.7 * Math.sin(u * Math.PI);
+      rig.legR.rotation.x = -0.35 * Math.sin(u * Math.PI);
+      rig.armL.rotation.z = lerp(0.12, 2.5, Math.sin(u * Math.PI));
+      rig.armR.rotation.z = lerp(-0.12, -1.2, Math.sin(u * Math.PI));
+      const f = Math.max(0, 1 - Math.abs(u - 0.5) / 0.12);
+      this.flash.material.opacity = f;
+      this.flash.position.copy(rig.root.position).setY(rig.root.position.y + rig.root.scale.y * 0.7);
+      this.flash.scale.setScalar(rig.root.scale.y * 2.4 * (0.6 + f));
+      if (!suited && u >= 0.5) {
+        suited = true;
+        const next = createMayor(outfits[1]);
+        next.root.position.copy(rig.root.position);
+        next.root.rotation.copy(rig.root.rotation);
+        next.root.scale.copy(rig.root.scale);
+        this.setRig(next);
+        rig = next;
+        onSuit?.();
+      }
+    });
+    this.flash.material.opacity = 0;
+    // settle into the corner and sink out of sight (the dock's own Mamdani pops up next)
+    const land = { ...to };
+    await this.tween(0.35, (t) => place({ x: land.x, y: land.y + toPx * 0.6 * ease(t) }, toPx, 0));
+  }
+
   dispose() {
     this.flash.material.map?.dispose();
     this.flash.material.dispose();

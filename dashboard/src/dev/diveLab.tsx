@@ -16,13 +16,15 @@ import { sendMamdani } from '../mamdani/diveStore';
 // own once the map has settled (or from window.__go()). Open /dive.html.
 gsap.registerPlugin(useGSAP);
 gsap.defaults({ ease: 'power3.out' });
+// read the options before the URL moves to the map page
+const query = new URLSearchParams(location.search);
 navigate('/admin/map', true);
 
 function Auto() {
   useEffect(() => {
     Object.assign(globalThis, { __go: sendMamdani });
-    if (!location.search.includes('manual')) {
-      const t = setTimeout(sendMamdani, Number(new URLSearchParams(location.search).get('delay') ?? 4500));
+    if (!query.has('manual')) {
+      const t = setTimeout(sendMamdani, Number(query.get('delay') ?? 4500));
       return () => clearTimeout(t);
     }
   }, []);

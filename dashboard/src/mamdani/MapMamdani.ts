@@ -164,6 +164,16 @@ export class MapMamdani extends RigStage {
     this.shadow.scale.setScalar(HEIGHT * 0.55);
   }
 
+  /** He leaves the map (the leap home takes over); his flags stay in the street. */
+  lift() {
+    this.shadow.visible = false;
+    this.walking = 0;
+    this.running = 0;
+    this.waving = 0;
+    this.tasks = [];
+    this.setRig(null);
+  }
+
   hide() {
     this.clearPlanted();
     this.shadow.visible = false;
