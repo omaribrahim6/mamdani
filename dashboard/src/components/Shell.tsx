@@ -12,6 +12,7 @@ const NAV: Array<{ page: Page; label: string; icon: typeof LayoutGrid }> = [
   { page: 'map', label: 'Live map', icon: MapIcon },
   { page: 'queue', label: 'Work queue', icon: ListChecks },
   { page: 'analytics', label: 'Analytics', icon: ChartNoAxesColumn },
+  { page: 'brief', label: 'Brief', icon: Newspaper },
 ];
 
 export function Sidebar({ page }: { page: Page }) {

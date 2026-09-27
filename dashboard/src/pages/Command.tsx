@@ -119,7 +119,7 @@ export function CommandPage() {
             </span>
             <span className="big-unit">in the last 24 hours</span>
             {delta != null && (
-              <span className={`chip ${delta > 0 ? 'bad' : 'good'}`}>
+              <span className="chip">
                 {delta > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 {delta > 0 ? '+' : ''}
                 {delta}% vs day before

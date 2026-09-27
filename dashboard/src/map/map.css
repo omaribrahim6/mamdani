@@ -395,3 +395,16 @@
   display: flex;
   gap: 8px;
 }
+
+/* full map: keep controls clear of the Mamdani dock in the bottom-right corner */
+.citymap.full .map-zoom {
+  top: 72px;
+  bottom: auto;
+}
+
+.citymap.full .trip {
+  top: 72px;
+  right: 70px;
+  bottom: auto;
+  max-height: calc(100% - 200px);
+}

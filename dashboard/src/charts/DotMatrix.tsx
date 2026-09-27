@@ -55,7 +55,8 @@ export function DotMatrix({ data, height = 250 }: { data: HourBucket[]; height?:
   const rows = Math.max(4, Math.floor(innerH / (r * 2 + 3)));
   const max = Math.max(1, ...data.map((d) => d.count));
   const per = Math.max(1, Math.ceil(max / rows)); // reports per dot
-  const ticks = [0, Math.round((max / 2) / per) * per, Math.ceil(max / per) * per];
+  const topTick = Math.ceil(max / per) * per;
+  const ticks = [...new Set([0, Math.round(topTick / 2 / per) * per, topTick])];
   const yOf = (v: number) => 8 + innerH - (v / per) * (r * 2 + 3) - r;
   const nowIdx = data.findIndex((d) => d.projected) - 1;
 

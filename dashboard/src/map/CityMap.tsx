@@ -51,6 +51,7 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
   const [ready, setReady] = useState(false);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [routing, setRouting] = useState(false);
+  const draw = useRef<gsap.core.Tween | null>(null);
   const points = activity ?? city.activity;
   const pickRef = useRef(onPick);
   pickRef.current = onPick;
@@ -156,6 +157,7 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
     ro.observe(box.current!);
 
     return () => {
+      draw.current?.kill();
       themeWatch.disconnect();
       ro.disconnect();
       markers.current.clear();
@@ -278,6 +280,7 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
 
   function clearRoute() {
     const m = map.current;
+    draw.current?.kill();
     stopMarkers.current.forEach((s) => s.remove());
     stopMarkers.current = [];
     if (m?.getSource('route')) (m.getSource('route') as mapboxgl.GeoJSONSource).setData({ type: 'FeatureCollection', features: [] });
@@ -297,11 +300,13 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
       fit(t.geometry.coordinates as Array<[number, number]>);
       // draw the line along its length
       const o = { p: 0 };
-      gsap.to(o, {
+      draw.current?.kill();
+      draw.current = gsap.to(o, {
         p: 1,
         duration: 2.2,
         ease: 'power2.inOut',
         onUpdate: () => {
+          if (map.current !== m || !m.getLayer('route')) return;
           m.setPaintProperty('route', 'line-trim-offset', [Math.min(o.p, 0.9999), 1]);
           m.setPaintProperty('route-casing', 'line-trim-offset', [Math.min(o.p, 0.9999), 1]);
         },
