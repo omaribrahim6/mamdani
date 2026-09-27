@@ -124,6 +124,7 @@ export function Dock() {
   useEffect(() => {
     const el = panel.current;
     if (!el) return;
+    gsap.killTweensOf(el);
     if (open) {
       gsap.set(el, { display: 'flex' });
       gsap.fromTo(el, { clipPath: 'circle(0% at 100% 100%)' }, { clipPath: 'circle(150% at 100% 100%)', duration: 0.7, ease: 'power3.inOut' });
@@ -131,7 +132,7 @@ export function Dock() {
       setTimeout(() => inputRef.current?.focus(), 350);
       setGesture({ g: 'reassure', key: Date.now() });
       setTimeout(() => setGesture({ g: 'rest', key: Date.now() }), 1600);
-    } else {
+    } else if (getComputedStyle(el).display !== 'none') {
       gsap.to(el, { clipPath: 'circle(0% at 100% 100%)', duration: 0.45, ease: 'power3.in', onComplete: () => void gsap.set(el, { display: 'none' }) });
     }
   }, [open]);

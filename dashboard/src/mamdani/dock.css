@@ -6,7 +6,7 @@
   bottom: 0;
   width: 232px;
   height: 232px;
-  z-index: 60;
+  z-index: 48;
   border-top-left-radius: 100%;
   overflow: hidden;
   isolation: isolate;
@@ -86,7 +86,7 @@
   position: fixed;
   right: 196px;
   bottom: 176px;
-  z-index: 61;
+  z-index: 49;
   max-width: 260px;
   padding: 12px 14px;
   border-radius: 18px 18px 4px 18px;
@@ -544,9 +544,9 @@
 .chat-canvas {
   position: absolute;
   left: 50%;
-  bottom: -118px;
-  width: 280px;
-  height: 300px;
+  bottom: -132px;
+  width: 330px;
+  height: 340px;
   transform: translateX(-50%);
 }
 

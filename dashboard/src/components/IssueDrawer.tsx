@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import { Accessibility, Copy, HardHat, MapPin, MessageSquare, Printer, ShieldAlert, Sparkles, TriangleAlert, Users, X } from 'lucide-react';
 import type { Issue, Report } from '@shared/types';
 import { sla } from '@shared/sla';
+import { metersBetween as metresBetween } from '@shared/priority';
 import { api, type WorkPlan } from '../lib/api';
 import { useCity } from '../lib/city';
 import { ago, category, hood, hours, money, NEXT_STATUS, stamp, STATUS_ORDER, STATUS_SHORT, street } from '../lib/format';
@@ -39,13 +40,14 @@ export function IssueDrawer() {
 
   useEffect(() => {
     if (!sheet.current || !scrim.current) return;
+    gsap.killTweensOf([sheet.current, scrim.current]);
     if (id) {
       gsap.to(scrim.current, { autoAlpha: 1, duration: 0.3 });
-      gsap.fromTo(sheet.current, { xPercent: 105 }, { xPercent: 0, duration: 0.6, ease: 'expo.out' });
+      gsap.fromTo(sheet.current, { x: 0, xPercent: 105 }, { x: 0, xPercent: 0, duration: 0.6, ease: 'expo.out' });
       gsap.fromTo(sheet.current.querySelectorAll('.dr-anim'), { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.55, stagger: 0.05, delay: 0.12 });
     } else {
       gsap.to(scrim.current, { autoAlpha: 0, duration: 0.3 });
-      gsap.to(sheet.current, { xPercent: 105, duration: 0.4, ease: 'power3.in' });
+      gsap.to(sheet.current, { x: 0, xPercent: 105, duration: 0.4, ease: 'power3.in' });
     }
   }, [id]);
 
@@ -77,6 +79,15 @@ export function IssueDrawer() {
 
   const i = issue ?? shown;
   const s = i ? sla(i) : null;
+  // other open work within a short walk: batch it into the same crew visit
+  const nearby = i
+    ? city.issues
+        .filter((o) => o.id !== i.id && o.status !== 'resolved')
+        .map((o) => ({ i: o, m: metresBetween(i.lat, i.lng, o.lat, o.lng) }))
+        .filter((o) => o.m < 900)
+        .sort((a, b) => a.m - b.m)
+        .slice(0, 4)
+    : [];
   const next = i ? NEXT_STATUS[i.status] : undefined;
   const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
@@ -245,6 +256,36 @@ export function IssueDrawer() {
                 )}
                 {plan && <Plan plan={plan} />}
               </section>
+
+              {nearby.length > 0 && (
+                <section className="dr-sec dr-anim">
+                  <div className="dr-sec-head">
+                    <h3>Nearby open issues</h3>
+                    <button
+                      className="btn small soft"
+                      onClick={() => {
+                        city.show([i.id, ...nearby.map((n) => n.i.id)], `Batch around ${street(i.address)}`, 'route');
+                        go('map');
+                      }}
+                    >
+                      Route them together
+                    </button>
+                  </div>
+                  <div className="nearby">
+                    {nearby.map(({ i: n, m }) => (
+                      <button key={n.id} onClick={() => city.open(n.id)}>
+                        <CategoryIcon id={n.category} size={14} />
+                        <span>
+                          <b>{n.title}</b>
+                          <em>
+                            #{n.id} · {Math.round(m)} m away · {STATUS_SHORT[n.status]}
+                          </em>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               <section className="dr-sec dr-anim">
                 <h3>History</h3>

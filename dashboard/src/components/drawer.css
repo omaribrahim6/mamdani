@@ -45,6 +45,10 @@
   gap: 22px;
 }
 
+.dr-body > * {
+  flex-shrink: 0;
+}
+
 .dr-title {
   margin: 0 0 6px;
   font-size: 24px;
@@ -575,4 +579,47 @@
   .dr-body {
     overflow: visible;
   }
+}
+
+.nearby {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nearby button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 14px;
+  text-align: left;
+  border: 1px solid var(--line);
+}
+
+.nearby button:hover {
+  background: var(--panel-2);
+}
+
+.nearby .cat-ico {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+}
+
+.nearby span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.nearby b {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.nearby em {
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--ink-3);
 }
