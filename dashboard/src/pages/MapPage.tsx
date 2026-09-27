@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { Pause, Play, Route as RouteIcon, Search, X } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, Pause, Play, Route as RouteIcon, Search, X } from 'lucide-react';
 import type { CategoryId } from '@shared/categories';
 import type { Status } from '@shared/types';
 import { sla } from '@shared/sla';
@@ -23,6 +23,22 @@ export default function MapPage() {
   const [heat, setHeat] = useState(true);
   const [buildings, setBuildings] = useState(true);
   const [picking, setPicking] = useState(false);
+  // the left panel folds away to show the whole map; remembered between visits
+  const [panel, setPanel] = useState(() => {
+    try {
+      return localStorage.getItem('mamdani-map-panel') !== 'closed';
+    } catch {
+      return true;
+    }
+  });
+  const togglePanel = (open: boolean) => {
+    setPanel(open);
+    try {
+      localStorage.setItem('mamdani-map-panel', open ? 'open' : 'closed');
+    } catch {
+      /* private window */
+    }
+  };
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [replayAt, setReplayAt] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -90,12 +106,23 @@ export default function MapPage() {
           onPick={picking ? togglePick : undefined}
         />
 
-        <aside className="mp-panel">
+        {!panel && (
+          <button className="mp-open" onClick={() => togglePanel(true)} aria-label="Show filters and list">
+            <PanelLeftOpen size={16} />
+            <span>Filters</span>
+            <em className="num">{shown.length} shown</em>
+          </button>
+        )}
+
+        <aside className={`mp-panel ${panel ? '' : 'closed'}`} aria-hidden={!panel}>
           <div className="mp-head">
             <h1>Live map</h1>
             <span className="chip">
               <i className="live-dot" /> {shown.length} shown
             </span>
+            <button className="icon-btn ghost mp-close" onClick={() => togglePanel(false)} aria-label="Hide filters and list" title="Hide panel (see the whole map)">
+              <PanelLeftClose size={16} />
+            </button>
           </div>
           <label className="field mp-search">
             <Search size={15} />

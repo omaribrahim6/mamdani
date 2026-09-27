@@ -17,7 +17,9 @@ const NAV: Array<{ page: Page; label: string; icon: typeof LayoutGrid }> = [
 ];
 
 export function Sidebar({ page }: { page: Page }) {
-  const { issues, brief, briefState, storeKind, lastSync, offline } = useCity();
+  const { issues, fresh, open: openIssue, brief, briefState, storeKind, lastSync, offline } = useCity();
+  // newest first; the list shows as many as fit between the nav and the brief card
+  const recent = [...issues].sort((a, b) => b.firstReportedAt - a.firstReportedAt).slice(0, 12);
   const root = useRef<HTMLElement>(null);
   const open = issues.filter((i) => i.status !== 'resolved').length;
   const [, tick] = useState(0);
@@ -56,7 +58,27 @@ export function Sidebar({ page }: { page: Page }) {
         ))}
       </nav>
 
-      <div className="side-fill" />
+      <section className="side-recent side-anim" aria-label="Just reported">
+        <div className="side-recent-head">
+          <span>Just reported</span>
+          <i className="live-dot" />
+        </div>
+        <ol>
+          {recent.map((i) => (
+            <li key={i.id}>
+              <button onClick={() => openIssue(i.id)} className={fresh.has(i.id) ? 'fresh' : ''}>
+                <i style={{ background: category(i.category).color }} />
+                <span>
+                  <b>{i.title}</b>
+                  <em>
+                    {i.address.split(',')[0]} · {ago(i.firstReportedAt)}
+                  </em>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <a href={pathOf('brief')} onClick={follow} className={`brief-teaser side-anim ${page === 'brief' ? 'on' : ''}`}>
         <div className="brief-grain" />

@@ -191,9 +191,15 @@
 }
 
 .map-card {
-  height: 560px;
+  /* as tall as the column beside it (Mamdani's read + department load), never shorter than 560 */
+  min-height: 560px;
   display: flex;
   flex-direction: column;
+}
+
+.map-card > .citymap {
+  flex: 1;
+  height: auto;
 }
 
 .map-head {

@@ -27,10 +27,61 @@
   box-shadow: var(--shadow-pop);
 }
 
+.mp-panel {
+  transition: transform 0.5s var(--ease), opacity 0.35s var(--ease);
+}
+
+.mp-panel.closed {
+  transform: translateX(calc(-100% - 32px));
+  opacity: 0;
+  pointer-events: none;
+}
+
 .mp-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
+}
+
+.mp-head .chip {
+  margin-left: auto;
+}
+
+.mp-close {
+  width: 32px;
+  height: 32px;
+  margin-right: -6px;
+}
+
+.mp-open {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 14px 0 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-pop);
+  font-size: 13px;
+  font-weight: 500;
+  animation: msg-in 0.4s var(--ease) both;
+}
+
+.mp-open em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+.mp-open:hover {
+  border-color: var(--line-2);
 }
 
 .mp-head h1 {
