@@ -64,6 +64,9 @@ export class PortraitStage extends RigStage {
   private nodAmp = 0;
   private nodT = 9;
   private shakeT = 9;
+  // an explicit place to look (pitch, yaw) that wins over the named gazes — the dashboard's
+  // Mamdani follows the cursor with it
+  private aimAt: [number, number] | null = null;
 
   constructor(target: HTMLCanvasElement | StageSurface) {
     super(target, { fov: 26, shadows: false });
@@ -81,6 +84,11 @@ export class PortraitStage extends RigStage {
     rig.root.position.set(0, 0, 0);
     rig.root.rotation.y = 0;
     this.present = true;
+  }
+
+  /** Look at a point given as head pitch and yaw (radians), or null to go back to the named gazes. */
+  aim(v: [number, number] | null) {
+    this.aimAt = v;
   }
 
   look(g: Gaze, holdMs = 0) {
@@ -230,7 +238,7 @@ export class PortraitStage extends RigStage {
       this.glanceUntil = 0;
       this.gaze = this.behavior === 'talk' ? 'you' : 'feed';
     }
-    let [p, y] = GAZE[this.gaze];
+    let [p, y] = this.aimAt && !this.glanceUntil ? this.aimAt : GAZE[this.gaze];
 
     // little eye darts while he watches, so he reads as looking at things, not frozen
     if (now > this.saccade.at) {
