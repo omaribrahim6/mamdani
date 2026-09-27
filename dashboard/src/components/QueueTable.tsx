@@ -1,9 +1,10 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ArrowUpDown, Check, ChevronRight, Users } from 'lucide-react';
 import type { Issue, Status } from '@shared/types';
 import { sla } from '@shared/sla';
 import { useCity } from '../lib/city';
+import { fx } from '../fx/overlay';
 import { ago, category, hood, NEXT_STATUS, STATUS_SHORT, street } from '../lib/format';
 import { CategoryIcon, PriorityMeter, SlaChip, StatusLabel } from './ui';
 import './queue.css';
@@ -21,6 +22,7 @@ export function QueueTable({ issues, limit, selectable = false, query = '', titl
   const [sort, setSort] = useState<Sort>('priority');
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const body = useRef<HTMLTableSectionElement>(null);
+  const scroll = useRef<HTMLDivElement>(null);
   const now = Date.now();
 
   const counts = useMemo(() => {
@@ -52,6 +54,22 @@ export function QueueTable({ issues, limit, selectable = false, query = '', titl
     if (!body.current) return;
     gsap.fromTo(body.current.querySelectorAll('tr'), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.025, ease: 'power3.out' });
   }, [tab, sort, rows.length]);
+
+  // late and at-risk work orders get a heat shimmer from the overlay canvas
+  useEffect(() => {
+    const o = fx();
+    if (!o || !body.current) return;
+    const offs: Array<() => void> = [];
+    for (const tr of body.current.querySelectorAll<HTMLTableRowElement>('tr[data-issue]')) {
+      const i = rows.find((r) => r.id === Number(tr.dataset.issue));
+      if (!i || i.status === 'resolved') continue;
+      const s = sla(i, now).state;
+      if (s === 'breached') offs.push(o.frame(tr, scroll.current, '#e0302b', 0.85));
+      else if (s === 'at_risk') offs.push(o.frame(tr, scroll.current, '#d99a00', 0.5));
+    }
+    return () => offs.forEach((f) => f());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
 
   const toggle = (id: number) =>
     setPicked((p) => {
@@ -129,7 +147,7 @@ export function QueueTable({ issues, limit, selectable = false, query = '', titl
         </div>
       )}
 
-      <div className="queue-scroll">
+      <div className="queue-scroll" ref={scroll}>
         <table className="qt">
           <thead>
             <tr>
@@ -149,7 +167,7 @@ export function QueueTable({ issues, limit, selectable = false, query = '', titl
             {rows.map((i) => {
               const next = NEXT_STATUS[i.status];
               return (
-                <tr key={i.id} className={`${city.selectedId === i.id ? 'sel' : ''} ${city.fresh.has(i.id) ? 'fresh' : ''}`} onClick={() => city.open(i.id)}>
+                <tr key={i.id} data-issue={i.id} className={`${city.selectedId === i.id ? 'sel' : ''} ${city.fresh.has(i.id) ? 'fresh' : ''}`} onClick={() => city.open(i.id)}>
                   {selectable && (
                     <td className="qt-check" onClick={(e) => (e.stopPropagation(), toggle(i.id))}>
                       <span className={`check ${picked.has(i.id) ? 'on' : ''}`}>{picked.has(i.id) && <Check size={12} />}</span>

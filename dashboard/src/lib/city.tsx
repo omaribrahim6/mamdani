@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ActivityPoint, CityStats, Issue, Status } from '@shared/types';
 import { api, type Brief } from './api';
 import { category, STATUS_SHORT, street } from './format';
+import { fx } from '../fx/overlay';
 
 // Everything the dashboard knows, kept live: issues poll every few seconds (only what changed),
 // stats and activity less often. Also the dashboard's shared intents — which issue is open, what
@@ -161,6 +162,8 @@ export function CityProvider({ children }: { children: ReactNode }) {
 
   const setStatus = useCallback(
     async (ids: number[], status: Status, note = '') => {
+      // a fixed work order gets a sweep across wherever it's showing (queue row, drawer)
+      if (status === 'resolved') for (const id of ids) document.querySelectorAll<HTMLElement>(`[data-issue="${id}"]`).forEach((el) => fx()?.sweep(el.getBoundingClientRect(), '#12995a'));
       // optimistic: the table moves now, the record catches up
       setMap((prev) => {
         const next = new Map(prev);
