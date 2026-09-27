@@ -50,9 +50,10 @@ export function Dock() {
   const [streaming, setStreaming] = useState(false);
   const [voice, setVoiceState] = useState(() => {
     try {
-      return localStorage.getItem('mamdani-voice') !== 'off';
+      // off until someone turns it on (the speaker button in the chat header)
+      return localStorage.getItem('mamdani-voice') === 'on';
     } catch {
-      return true;
+      return false;
     }
   });
   const setVoice = (f: (v: boolean) => boolean) =>
