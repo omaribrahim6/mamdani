@@ -20,6 +20,7 @@ export function Sidebar({ page }: { page: Page }) {
   const root = useRef<HTMLElement>(null);
   const open = issues.filter((i) => i.status !== 'resolved').length;
   const [, tick] = useState(0);
+  const [feed, setFeed] = useState(false);
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 5000);
     return () => clearInterval(t);
@@ -48,11 +49,12 @@ export function Sidebar({ page }: { page: Page }) {
           <b>Operations desk</b>
           <span>Public Works & Environmental</span>
         </div>
-        <button className="icon-btn ghost user-bell" aria-label={`${fresh.size} new reports`} onClick={() => go('queue')}>
+        <button className="icon-btn ghost user-bell" aria-label={`${fresh.size} new reports`} onClick={() => setFeed((f) => !f)}>
           <Bell size={16} />
           {fresh.size > 0 && <i className="bell-dot">{fresh.size}</i>}
         </button>
       </div>
+      {feed && <Feed onClose={() => setFeed(false)} />}
 
       <nav className="nav side-anim">
         {NAV.map(({ page: p, label, icon: Icon }) => (
@@ -160,5 +162,42 @@ export function Topbar({ onSearch }: { onSearch: () => void }) {
         </a>
       </div>
     </header>
+  );
+}
+
+/** Everything that happened, newest first: reports, confirmations, status changes. */
+function Feed({ onClose }: { onClose: () => void }) {
+  const { issues, open } = useCity();
+  const events = issues
+    .flatMap((i) => i.events.map((e) => ({ ...e, i })))
+    .sort((a, b) => b.at - a.at)
+    .slice(0, 30);
+  useEffect(() => {
+    const off = (e: MouseEvent) => !(e.target as HTMLElement).closest('.feed, .user-bell') && onClose();
+    addEventListener('mousedown', off);
+    return () => removeEventListener('mousedown', off);
+  }, [onClose]);
+  return (
+    <div className="feed">
+      <div className="feed-head">
+        <b>City activity</b>
+        <span className="muted">live</span>
+      </div>
+      <ol>
+        {events.map((e, k) => (
+          <li key={k}>
+            <button onClick={() => (open(e.i.id), onClose())}>
+              <i className={`feed-dot feed-${e.kind}`} />
+              <span>
+                <b>{e.note}</b>
+                <em>
+                  #{e.i.id} {category(e.i.category).label} · {e.i.address.split(',')[0]} · {ago(e.at)}
+                </em>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

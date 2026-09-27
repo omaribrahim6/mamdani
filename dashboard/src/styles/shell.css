@@ -350,3 +350,90 @@
     display: none;
   }
 }
+
+.feed {
+  position: absolute;
+  top: 150px;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  animation: msg-in 0.35s var(--ease) both;
+}
+
+.feed-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px 10px;
+  font-size: 13px;
+}
+
+.feed-head b {
+  font-weight: 600;
+}
+
+.feed ol {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 8px;
+  overflow-y: auto;
+}
+
+.feed button {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px;
+  border-radius: 12px;
+  text-align: left;
+}
+
+.feed button:hover {
+  background: var(--panel-2);
+}
+
+.feed span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.feed b {
+  font-weight: 500;
+  font-size: 12.5px;
+}
+
+.feed em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feed-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ink-4);
+}
+
+.feed-reported {
+  background: var(--accent);
+}
+
+.feed-status {
+  background: var(--st-assigned);
+}
