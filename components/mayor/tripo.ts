@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeFlag, type MayorOutfit, type MayorRig } from './build';
-import { addFaceMorphs, FACE_SHAPES, type FaceWeights } from './face';
+import { addEyeFrames, addEyelids, addFaceMorphs, eyelidColor, FACE_SHAPES, type FaceWeights } from './face';
 import { CartoonMouth } from './mouth';
 
 // Tripo's generated Mamdani (image → 3D → auto-rig, Mixamo skeleton), loaded from a .mrig pack
@@ -20,6 +20,8 @@ export interface MrigPack {
   eyes: Array<{ center: THREE.Vector3 }>;
   /** points on the face surface (model space): where the eyelids and the talking mouth go */
   face: { eyes: THREE.Vector3[]; mouth: THREE.Vector3; eyeGap: number };
+  /** skin colour above the eyes, sampled once from the texture (for the drawn eyelids) */
+  lidColor?: THREE.Color;
 }
 
 const HEIGHT = 1.18; // the procedural rig's height; every stage constant assumes it
@@ -128,7 +130,12 @@ export function buildTripoMayor(pack: MrigPack, outfit: MayorOutfit): MayorRig {
 
   // sculpt the face shapes once per pack (the geometry is shared by every Mamdani built from it)
   addFaceMorphs(pack.geometry, pack.face);
-  const mesh = new THREE.SkinnedMesh(pack.geometry, pack.material);
+  addEyeFrames(pack.geometry, pack.face);
+  // each Mamdani gets his own copy of the skin material, so his eyelids blink on his own
+  pack.lidColor ??= eyelidColor(pack.geometry, pack.material.map as THREE.DataTexture, pack.face);
+  const skin = pack.material.clone();
+  const lids = addEyelids(skin, pack.lidColor);
+  const mesh = new THREE.SkinnedMesh(pack.geometry, skin);
   mesh.castShadow = true;
   mesh.frustumCulled = false; // skinned bounds move with the pose
   inner.add(mesh);
@@ -296,6 +303,8 @@ export function buildTripoMayor(pack: MrigPack, outfit: MayorOutfit): MayorRig {
       const inf = mesh.morphTargetInfluences;
       if (!inf) return;
       for (let i = 0; i < FACE_SHAPES.length; i++) inf[i] = w[FACE_SHAPES[i]];
+      lids.uBlink0.value = w.blink0;
+      lids.uBlink1.value = w.blink1;
       cartoon.set({ open: w.jawOpen, wide: w.mouthWide, round: w.mouthRound, smile: w.smile });
     },
     update() {

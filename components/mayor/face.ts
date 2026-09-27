@@ -6,12 +6,12 @@ import type { CharacterEmotion, Mood } from '@/lib/types';
 // the vertices around a landmark (mouth, eyes) with a soft falloff. The painted beard, lips and
 // brows ride along with the surface, which is exactly what a cartoon face needs.
 
-export const FACE_SHAPES = ['jawOpen', 'mouthWide', 'mouthRound', 'smile', 'browUp0', 'browUp1', 'browDown0', 'browDown1', 'squint0', 'squint1'] as const;
+export const FACE_SHAPES = ['jawOpen', 'mouthWide', 'mouthRound', 'smile', 'browUp0', 'browUp1', 'browDown0', 'browDown1', 'squint0', 'squint1', 'blink0', 'blink1'] as const;
 export type FaceShape = (typeof FACE_SHAPES)[number];
 export type FaceWeights = Record<FaceShape, number>;
 
 export const neutralFace = (): FaceWeights => ({
-  jawOpen: 0, mouthWide: 0, mouthRound: 0, smile: 0, browUp0: 0, browUp1: 0, browDown0: 0, browDown1: 0, squint0: 0, squint1: 0,
+  jawOpen: 0, mouthWide: 0, mouthRound: 0, smile: 0, browUp0: 0, browUp1: 0, browDown0: 0, browDown1: 0, squint0: 0, squint1: 0, blink0: 0, blink1: 0,
 });
 
 export interface FaceLandmarks {
@@ -41,7 +41,7 @@ export function addFaceMorphs(geometry: THREE.BufferGeometry, face: FaceLandmark
   const m = face.mouth;
   const z0 = m.z; // the face's centre line
   const out = FACE_SHAPES.map(() => new Float32Array(n * 3));
-  const [jaw, wide, round, smile, up0, up1, down0, down1, sq0, sq1] = out;
+  const [jaw, wide, round, smile, up0, up1, down0, down1, sq0, sq1, bl0, bl1] = out;
   const hinge = new THREE.Vector3(m.x - 0.9 * u, m.y + 0.05 * u, z0);
   const jawAngle = -0.36;
   const cos = Math.cos(jawAngle), sin = Math.sin(jawAngle);
@@ -109,6 +109,20 @@ export function addFaceMorphs(geometry: THREE.BufferGeometry, face: FaceLandmark
       sq[j + 1] += (0.09 * u * below - 0.05 * u * above) * across;
       sq[j] += 0.015 * u * below * across;
     });
+
+    // blink: the painted eye collapses onto a lid line a little below its centre (the upper lid
+    // travels further). Morphs add up, so this closes the eye wherever the squint and brows have
+    // moved it: a blink during a smile closes the smiling, squinted eye, not the neutral one.
+    face.eyes.forEach((e, k) => {
+      const across = bell(z - e.z, 0.24 * u) * smooth(e.x - 0.45 * u, e.x - 0.1 * u, x);
+      if (across < 0.01) return;
+      const line = e.y - 0.03 * u;
+      const m = across * (1 - smooth(0.1 * u, 0.26 * u, Math.abs(y - line)));
+      if (m <= 0) return;
+      const bl = k === 0 ? bl0 : bl1;
+      bl[j + 1] += (line - y) * m * 0.45; // a squash; the lid itself is drawn by the skin shader (addEyelids)
+      bl[j] += 0.008 * u * m * (y > line ? 1 : 0); // the upper lid rounds forward over the eye
+    });
   }
 
   geometry.morphTargetsRelative = true;
@@ -154,4 +168,84 @@ export interface VoiceShape {
   bright: number;
   /** 0..1: dark, low-heavy sound — "oo", "o" — rounds them */
   dark: number;
+}
+
+// ── eyelids drawn on the skin ──
+// The eyes are painted into the texture, so a blink can't reveal skin that isn't there. Instead the
+// skin shader paints a lid over each eye. Its coordinates are fixed to the bind-pose surface (an
+// "eye frame" per vertex), so they travel with every morph: in a squint, a raised brow or a smile,
+// the lid closes over the eye where it now is.
+
+/** Per-vertex eye-frame coordinates: (across, up) in eye radii, and which eye (0/1, or -1 = none). */
+export function addEyeFrames(geometry: THREE.BufferGeometry, face: FaceLandmarks) {
+  if (geometry.getAttribute('eyeFrame')) return;
+  const pos = geometry.getAttribute('position') as THREE.BufferAttribute;
+  const n = pos.count;
+  const u = face.eyeGap;
+  const rx = 0.25 * u, ry = 0.15 * u;
+  const out = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    let best = -1, bd = Infinity;
+    face.eyes.forEach((e, k) => {
+      const d = Math.hypot((z - e.z) / rx, (y - e.y) / ry);
+      if (x > e.x - 0.35 * u && d < bd) { bd = d; best = k; }
+    });
+    const e = best >= 0 ? face.eyes[best] : null;
+    out.set(e ? [(z - e.z) / rx, (y - e.y) / ry, best] : [9, 9, -1], i * 3);
+  }
+  geometry.setAttribute('eyeFrame', new THREE.BufferAttribute(out, 3));
+}
+
+/** Average colour of the clean skin just under the eyes (above them is brow shadow), from the model's own texture. */
+export function eyelidColor(geometry: THREE.BufferGeometry, map: THREE.DataTexture, face: FaceLandmarks) {
+  const pos = geometry.getAttribute('position') as THREE.BufferAttribute;
+  const uv = geometry.getAttribute('uv') as THREE.BufferAttribute;
+  const { data, width, height } = map.image as { data: Uint8Array; width: number; height: number };
+  const u = face.eyeGap;
+  let r = 0, g = 0, b = 0, c = 0;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    for (const e of face.eyes) {
+      if (Math.abs(z - e.z) < 0.12 * u && y < e.y - 0.2 * u && y > e.y - 0.32 * u && x > e.x - 0.3 * u) {
+        const px = Math.min(width - 1, Math.max(0, Math.round(uv.getX(i) * (width - 1))));
+        const py = Math.min(height - 1, Math.max(0, Math.round(uv.getY(i) * (height - 1))));
+        const k = (py * width + px) * 4;
+        r += data[k]; g += data[k + 1]; b += data[k + 2]; c++;
+      }
+    }
+  }
+  const col = new THREE.Color();
+  return c ? col.setRGB(r / c / 255, g / c / 255, b / c / 255, THREE.SRGBColorSpace) : col.setHex(0xc98a5c);
+}
+
+/** Paint lids over the eyes in this material's skin shader; returns the per-eye blink uniforms. */
+export function addEyelids(material: THREE.MeshStandardMaterial, skin: THREE.Color) {
+  const uniforms = { uBlink0: { value: 0 }, uBlink1: { value: 0 }, uLid: { value: skin } };
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec3 eyeFrame;\nvarying vec3 vEyeFrame;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvEyeFrame = eyeFrame;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vEyeFrame;\nuniform float uBlink0;\nuniform float uBlink1;\nuniform vec3 uLid;')
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        if (vEyeFrame.z > -0.5) {
+          float shut = vEyeFrame.z < 0.5 ? uBlink0 : uBlink1;
+          vec2 q = vEyeFrame.xy;
+          // the eye's outline, and the lid's edge sweeping down from above it to just below centre
+          float inside = 1.0 - smoothstep(1.0, 1.15, length(q));
+          float edge = mix(1.2, -0.62, shut) - 0.12 * q.x * q.x; // curved lid line, down to the lower lid when shut
+          float lid = inside * smoothstep(edge - 0.06, edge + 0.04, q.y) * step(0.01, shut);
+          diffuseColor.rgb = mix(diffuseColor.rgb, uLid, lid);
+          // lashes along the lid's edge
+          float lash = inside * (1.0 - smoothstep(0.04, 0.16, abs(q.y - edge))) * smoothstep(0.05, 0.3, shut);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.06, 0.04, 0.04), lash * 0.9);
+        }`,
+      );
+  };
+  material.customProgramCacheKey = () => 'mamdani-eyelids';
+  return uniforms;
 }
