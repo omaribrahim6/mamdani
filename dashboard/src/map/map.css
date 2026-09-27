@@ -21,7 +21,8 @@
 /* ── pins: black discs with the category icon (Transcope), a coloured ring for the type ── */
 
 .pin {
-  position: relative;
+  /* no position here: Mapbox makes every marker position:absolute and moves it with a
+     transform. Overriding that puts the pins in normal flow and they drift off their spot. */
   display: flex;
   flex-direction: column;
   align-items: center;
