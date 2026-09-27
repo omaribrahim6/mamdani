@@ -1,4 +1,5 @@
 import { hasAI, json, MODELS } from '../ai';
+import { store } from '../store';
 import { overview } from './record';
 import { research, type Source } from './research';
 
@@ -68,12 +69,23 @@ const SCHEMA = {
   required: ['headline', 'greeting', 'summary', 'priorities', 'watchlist', 'crewPlan', 'outlook', 'signoff'],
 };
 
-let cache: { at: number; brief: Brief } | null = null;
+// One brief per Ottawa calendar day, kept in the database so every visit (and every server
+// instance) reads the same memo. "Rewrite" asks for a fresh one, which replaces today's.
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
 let pending: Promise<Brief> | null = null;
 
 export async function brief(refresh = false): Promise<Brief> {
-  if (!refresh && cache && Date.now() - cache.at < 20 * 60e3) return cache.brief;
-  return (pending ??= build().finally(() => (pending = null)));
+  const key = `brief:${today()}`;
+  if (!refresh) {
+    const saved = await store.cacheGet<Brief>(key).catch(() => null);
+    if (saved) return saved;
+  }
+  return (pending ??= build()
+    .then(async (b) => {
+      await store.cacheSet(key, b).catch((e) => console.error('brief cache', e));
+      return b;
+    })
+    .finally(() => (pending = null)));
 }
 
 async function build(): Promise<Brief> {
@@ -98,7 +110,7 @@ async function build(): Promise<Brief> {
       conditions,
       numbers,
     };
-    return (cache = { at: Date.now(), brief: b }).brief;
+    return b;
   }
   const r = await json<Omit<Brief, 'generatedAt' | 'model' | 'conditions' | 'numbers'>>(
     MODELS.decide(),
@@ -132,6 +144,5 @@ Plain, specific, municipal. Numbers must match the record.`,
     conditions,
     numbers,
   };
-  cache = { at: Date.now(), brief: b };
   return b;
 }

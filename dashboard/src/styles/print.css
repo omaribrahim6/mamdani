@@ -1,0 +1,125 @@
+/* Print modes, set by lib/print.ts. Without a mode nothing special happens. */
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  html[data-print] body {
+    background: #fff;
+  }
+
+  html[data-print] * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html[data-print] .dock-launch,
+  html[data-print] .dock-label,
+  html[data-print] .dock-bubble,
+  html[data-print] .chat,
+  html[data-print] .toasts,
+  html[data-print] .tip,
+  html[data-print] .dr-scrim,
+  html[data-print] .pal-scrim {
+    display: none !important;
+  }
+
+  html[data-print] .enter,
+  html[data-print] .dr-anim {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* a work order: only the drawer, laid out as a page */
+  html[data-print='issue'] .shell {
+    display: none !important;
+  }
+
+  html[data-print='issue'] .drawer {
+    position: static;
+    width: 100%;
+    height: auto;
+    transform: none !important;
+    box-shadow: none;
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  html[data-print='issue'] .dr-body {
+    overflow: visible;
+    padding: 0;
+  }
+
+  html[data-print='issue'] .dr-foot,
+  html[data-print='issue'] .dr-head .icon-btn,
+  html[data-print='issue'] .plan-cta,
+  html[data-print='issue'] .nearby-actions {
+    display: none !important;
+  }
+
+  html[data-print='issue'] .dr-sec {
+    break-inside: avoid;
+  }
+
+  /* the brief: just the page content, one column */
+  html[data-print='brief'] .drawer,
+  html[data-print='brief'] .side,
+  html[data-print='brief'] .top,
+  html[data-print='brief'] .bf-actions,
+  html[data-print='brief'] .bf-hero-mamdani,
+  html[data-print='brief'] .brief-grain {
+    display: none !important;
+  }
+
+  html[data-print='brief'] .shell {
+    display: block;
+    padding: 0;
+  }
+
+  html[data-print='brief'] .page {
+    padding: 0;
+  }
+
+  html[data-print='brief'] .bf-hero {
+    display: block;
+    min-height: 0;
+    color: #0e1011;
+    background: none !important;
+    border-bottom: 2px solid #0e1011;
+    border-radius: 0;
+  }
+
+  html[data-print='brief'] .bf-hero-text {
+    padding: 0 0 16px;
+  }
+
+  html[data-print='brief'] .bf-head {
+    font-size: 30px;
+  }
+
+  html[data-print='brief'] .brief-tag {
+    background: none;
+    padding: 0;
+    color: #4b5155;
+  }
+
+  html[data-print='brief'] .bf-numbers {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  html[data-print='brief'] .bf-grid {
+    grid-template-columns: 1fr;
+  }
+
+  html[data-print='brief'] .card,
+  html[data-print='brief'] .bf-num {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  html[data-print='brief'] .bf-crew .btn {
+    display: none;
+  }
+}

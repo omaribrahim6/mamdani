@@ -2,7 +2,7 @@ import { brief } from '@/lib/command/brief';
 
 export const maxDuration = 120;
 
-// GET /api/brief            → today's brief (cached for 20 minutes)
+// GET /api/brief            → today's brief (written once per Ottawa day, kept in Tiger Data)
 // GET /api/brief?refresh=1  → write a fresh one
 export async function GET(req: Request) {
   const refresh = new URL(req.url).searchParams.has('refresh');

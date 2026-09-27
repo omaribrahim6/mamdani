@@ -5,6 +5,7 @@ import { useGSAP } from '@gsap/react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './styles/base.css';
 import './styles/shell.css';
+import './styles/print.css';
 import { App } from './App';
 
 gsap.registerPlugin(useGSAP);

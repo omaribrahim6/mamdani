@@ -26,6 +26,9 @@ export interface Store {
   similar(embedding: number[], limit: number): Promise<Array<{ issue: Issue; similarity: number }>>;
   /** every resident report since a time, light enough to plot: when, where, what */
   activity(since: number): Promise<ActivityPoint[]>;
+  /** small durable key/value cache for generated content (today's brief) that must outlive a server instance */
+  cacheGet<T>(key: string): Promise<T | null>;
+  cacheSet(key: string, value: unknown): Promise<void>;
 
   // Idempotency ledger for phone submissions: one shutter press (session) → at most one commit.
   /** the stored outcome of a session, if it finished; `pending` if another request is committing it */

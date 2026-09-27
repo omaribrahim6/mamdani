@@ -8,6 +8,7 @@ import { api, type WorkPlan } from '../lib/api';
 import { useCity } from '../lib/city';
 import { ago, category, hood, hours, money, NEXT_STATUS, stamp, STATUS_ORDER, STATUS_SHORT, street } from '../lib/format';
 import { go } from '../lib/router';
+import { printAs } from '../lib/print';
 import { CategoryIcon, Counter } from './ui';
 import './drawer.css';
 
@@ -103,7 +104,7 @@ export function IssueDrawer() {
                 {category(i.category).label}
               </span>
               <span className="dr-sp" />
-              <button className="icon-btn ghost" onClick={() => window.print()} aria-label="Print work order" title="Print work order">
+              <button className="icon-btn ghost" onClick={() => printAs('issue')} aria-label="Print work order" title="Print work order">
                 <Printer size={16} />
               </button>
               <button className="icon-btn ghost" onClick={() => city.open(null)} aria-label="Close">
@@ -275,7 +276,7 @@ export function IssueDrawer() {
                     {nearby.map(({ i: n, m }) => (
                       <button key={n.id} onClick={() => city.open(n.id)}>
                         <CategoryIcon id={n.category} size={14} />
-                        <span>
+                        <span className="nearby-text">
                           <b>{n.title}</b>
                           <em>
                             #{n.id} · {Math.round(m)} m away · {STATUS_SHORT[n.status]}
@@ -333,13 +334,6 @@ export function IssueDrawer() {
               )}
             </footer>
 
-            <div className="print-only">
-              <h1>Work order #{i.id}</h1>
-              <p>
-                {category(i.category).label} · {i.address} ({hood(i.address)}) · {i.department}
-              </p>
-              <p>{i.summary}</p>
-            </div>
           </>
         )}
       </aside>

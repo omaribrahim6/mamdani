@@ -83,3 +83,10 @@ select add_continuous_aggregate_policy('reports_hourly',
   end_offset => interval '1 hour',
   schedule_interval => interval '5 minutes',
   if_not_exists => true);
+
+-- generated content that should outlive a server instance (today's brief, keyed by date)
+create table if not exists app_cache (
+  key        text primary key,
+  value      jsonb not null,
+  updated_at timestamptz not null default now()
+);

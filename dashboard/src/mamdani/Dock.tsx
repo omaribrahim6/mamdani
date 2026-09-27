@@ -67,7 +67,7 @@ export function Dock() {
       if (!next) stopVoice();
       return next;
     });
-  const { speaking, analyser } = useVoice();
+  const { speaking, preparing, analyser } = useVoice();
   const [bubble, setBubble] = useState<string | null>(null);
   const [hover, setHover] = useState(false);
   const [gesture, setGesture] = useState<{ g: Gesture; key: number } | null>(null);
@@ -329,7 +329,7 @@ export function Dock() {
               }
             }}
           />
-          {busy || speaking ? (
+          {busy || speaking || preparing ? (
             <button type="button" className="send stop" onClick={stop} aria-label="Stop">
               <Square size={14} fill="currentColor" />
             </button>

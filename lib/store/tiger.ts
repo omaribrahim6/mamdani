@@ -67,6 +67,9 @@ async function insertReport(issueId: number, r: Omit<Report, 'id' | 'issueId'>) 
   return toReport(rows[0]);
 }
 
+let cacheReady: Promise<unknown> | null = null;
+const cacheTable = () => (cacheReady ??= db().query(`create table if not exists app_cache (key text primary key, value jsonb not null, updated_at timestamptz not null default now())`));
+
 export const tigerStore: Store = {
   kind: 'tiger',
 
@@ -199,6 +202,21 @@ export const tigerStore: Store = {
       [since],
     );
     return rows.map((r) => ({ t: Number(r.t), issueId: Number(r.issue_id), category: category(r.category as string).id, lat: r.lat as number, lng: r.lng as number }));
+  },
+
+  async cacheGet<T>(key: string) {
+    await cacheTable();
+    const { rows } = await db().query(`select value from app_cache where key = $1`, [key]);
+    return rows[0] ? (rows[0].value as T) : null;
+  },
+
+  async cacheSet(key, value) {
+    await cacheTable();
+    await db().query(
+      `insert into app_cache (key, value, updated_at) values ($1, $2, now())
+       on conflict (key) do update set value = excluded.value, updated_at = now()`,
+      [key, JSON.stringify(value)],
+    );
   },
 
   async stats(): Promise<CityStats> {

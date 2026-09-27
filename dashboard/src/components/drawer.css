@@ -556,31 +556,6 @@
   background: var(--panel);
 }
 
-.print-only {
-  display: none;
-}
-
-@media print {
-  body > #root > .shell,
-  .dock-launch,
-  .chat,
-  .dr-scrim,
-  .dr-foot,
-  .dr-head .icon-btn {
-    display: none !important;
-  }
-  .drawer {
-    position: static;
-    width: 100%;
-    transform: none !important;
-    box-shadow: none;
-    border: 0;
-  }
-  .dr-body {
-    overflow: visible;
-  }
-}
-
 .nearby {
   display: flex;
   flex-direction: column;
@@ -604,10 +579,11 @@
 .nearby .cat-ico {
   width: 30px;
   height: 30px;
+  flex: none;
   border-radius: 10px;
 }
 
-.nearby span {
+.nearby .nearby-text {
   display: flex;
   flex-direction: column;
   min-width: 0;

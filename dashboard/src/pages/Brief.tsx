@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { Accessibility, CalendarDays, CloudRain, Globe, Layers, Printer, RefreshCw, Route as RouteIcon, TrendingUp, Volume2, VolumeX } from 'lucide-react';
+import { Accessibility, CalendarDays, CloudRain, Globe, Layers, Loader, Printer, RefreshCw, Route as RouteIcon, TrendingUp, Volume2, VolumeX } from 'lucide-react';
 import { useCity } from '../lib/city';
 import { category, clock, hours, street } from '../lib/format';
 import { go } from '../lib/router';
 import { MamdaniCanvas } from '../mamdani/MamdaniCanvas';
 import { speak, stopVoice, useVoice } from '../lib/voice';
+import { printAs } from '../lib/print';
 import './brief.css';
 
 // Today's brief, written by Gemini from the city record and the web: the memo a supervisor reads
@@ -18,7 +19,7 @@ export default function BriefPage() {
   const city = useCity();
   const b = city.brief;
   const root = useRef<HTMLDivElement>(null);
-  const { speaking, analyser } = useVoice();
+  const { speaking, preparing, failed, analyser } = useVoice();
   const reading = speaking;
 
   useGSAP(
@@ -34,7 +35,7 @@ export default function BriefPage() {
 
   const read = () => {
     if (!b) return;
-    if (speaking) return stopVoice();
+    if (speaking || preparing) return stopVoice();
     void speak([b.greeting, `${b.headline}.`, b.summary, ...b.priorities.slice(0, 3).map((p, k) => `Number ${k + 1}: ${p.action}.`), b.signoff].join(' '), 900);
   };
 
@@ -75,18 +76,19 @@ export default function BriefPage() {
           <p className="bf-greet">“{b.greeting}”</p>
           <div className="bf-actions">
             <button className="btn bf-light" onClick={read}>
-              {reading ? <VolumeX size={16} /> : <Volume2 size={16} />} {reading ? 'Stop' : 'Read it to me'}
+              {preparing ? <Loader size={16} className="spin" /> : reading ? <VolumeX size={16} /> : <Volume2 size={16} />}{' '}
+              {preparing ? 'Warming up his voice… (tap to cancel)' : reading ? 'Stop' : failed ? 'Voice didn’t load, try again' : 'Read it to me'}
             </button>
             <button className="btn bf-ghost" onClick={() => city.loadBrief(true)} disabled={city.briefState === 'loading'}>
               <RefreshCw size={16} className={city.briefState === 'loading' ? 'spin' : ''} /> Rewrite
             </button>
-            <button className="btn bf-ghost" onClick={() => window.print()}>
+            <button className="btn bf-ghost" onClick={() => printAs('brief')}>
               <Printer size={16} /> Print
             </button>
           </div>
         </div>
         <div className="bf-hero-mamdani">
-          <MamdaniCanvas className="bf-canvas" framing="waist" behavior={reading ? 'talk' : 'watch'} expression={reading ? 'CHEERFUL' : 'NEUTRAL'} analyser={analyser} />
+          <MamdaniCanvas className="bf-canvas" framing="waist" behavior={reading ? 'talk' : preparing ? 'think' : 'watch'} expression={reading ? 'CHEERFUL' : 'NEUTRAL'} analyser={analyser} />
         </div>
       </section>
 

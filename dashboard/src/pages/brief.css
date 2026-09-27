@@ -365,14 +365,3 @@
     display: none;
   }
 }
-
-@media print {
-  .bf-actions,
-  .bf-hero-mamdani {
-    display: none;
-  }
-  .bf-hero {
-    color: #000;
-    background: none;
-  }
-}

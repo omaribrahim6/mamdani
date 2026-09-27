@@ -146,13 +146,29 @@ export function CityProvider({ children }: { children: ReactNode }) {
     if (fresh.size) api.activity(7).then((a) => setActivity(a.points)).catch(() => {});
   }, [fresh]);
 
+  // today's brief: shown straight away from this browser's copy, then confirmed with the server
+  // (which writes one per day; "Rewrite" asks for a fresh one)
   const loadBrief = useCallback((refresh = false) => {
+    const day = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' });
+    if (!refresh) {
+      try {
+        const saved = JSON.parse(localStorage.getItem('mamdani-brief') ?? 'null') as { day: string; brief: Brief } | null;
+        if (saved?.day === day) setBrief(saved.brief);
+      } catch {
+        /* private window */
+      }
+    }
     setBriefState('loading');
     api
       .brief(refresh)
       .then((b) => {
         setBrief(b);
         setBriefState('idle');
+        try {
+          localStorage.setItem('mamdani-brief', JSON.stringify({ day, brief: b }));
+        } catch {
+          /* private window */
+        }
       })
       .catch(() => setBriefState('error'));
   }, []);

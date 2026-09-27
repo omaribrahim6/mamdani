@@ -79,6 +79,8 @@ function seed(): State {
 const g = globalThis as unknown as { __mamdaniMemory?: State };
 const state = () => (g.__mamdaniMemory ??= seed());
 
+const cache = new Map<string, unknown>();
+
 export const memoryStore: Store = {
   kind: 'memory',
 
@@ -203,6 +205,14 @@ export const memoryStore: Store = {
       .reports.filter((r) => r.createdAt > since)
       .map((r) => ({ t: r.createdAt, issueId: r.issueId, category: r.analysis.category, lat: r.lat, lng: r.lng }))
       .sort((a, b) => a.t - b.t);
+  },
+
+  async cacheGet<T>(key: string) {
+    return (cache.get(key) as T | undefined) ?? null;
+  },
+
+  async cacheSet(key, value) {
+    cache.set(key, value);
   },
 
   async stats(): Promise<CityStats> {
