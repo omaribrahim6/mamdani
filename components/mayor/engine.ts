@@ -206,7 +206,9 @@ export class RigStage {
     }
   }
 
-  private frame(dt: number, now: number) {
+  /** One frame: tweens, walk cycle, face, render. Protected so a stage hosted in someone else's
+   *  render loop (the dashboard's Mapbox layer) can step it there. */
+  protected frame(dt: number, now: number) {
     let restore: (() => void) | null = null;
     this.tasks = this.tasks.filter((f) => !f(dt));
     // nothing on stage and nothing moving: the last (empty) frame is still showing
