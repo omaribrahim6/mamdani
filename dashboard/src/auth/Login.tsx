@@ -59,7 +59,6 @@ export function Login({ returnTo, error }: { returnTo: string; error?: string })
           </div>
 
           <div className="lg-copy">
-            <span className="lg-kicker lg-anim">For city staff</span>
             <h1 className="lg-anim">
               Every resident report.
               <br />
