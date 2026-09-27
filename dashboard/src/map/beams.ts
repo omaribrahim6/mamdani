@@ -172,9 +172,13 @@ export class BeamsLayer implements mapboxgl.CustomLayerInterface {
     this.last = now;
     const t = this.reduced ? 0 : now / 1000;
     const additive = this.night > 0.5;
+    // real metres vanish at city zoom: widen and lengthen beams as the camera pulls back
+    const z = map.getZoom();
+    const wide = Math.min(8, Math.max(1, 2 ** (15.5 - z)));
+    const tall = Math.min(4.5, Math.max(1, 2 ** ((15.5 - z) * 0.75)));
     for (const [id, b] of this.beams) {
       b.height += (b.target - b.height) * Math.min(1, dt * 2.5);
-      b.beam.scale.set(1, Math.max(0.01, b.height), 1);
+      b.beam.scale.set(wide, Math.max(0.01, b.height * tall), wide);
       b.shock = Math.max(0, b.shock - dt * 0.55);
       const sel = id === this.selected ? 1 : 0;
       const glow = this.visible ? 0.75 + sel * 0.6 : 0;
@@ -185,7 +189,7 @@ export class BeamsLayer implements mapboxgl.CustomLayerInterface {
         m.blending = additive ? THREE.AdditiveBlending : THREE.NormalBlending;
       }
       b.ring.material.uniforms.uShock.value = b.shock;
-      b.ring.scale.setScalar(1 + sel * 0.5 + b.shock * 2.5);
+      b.ring.scale.setScalar((1 + sel * 0.5 + b.shock * 2.5) * Math.max(1, wide * 0.7));
     }
     this.camera.projectionMatrix = new THREE.Matrix4().fromArray(matrix).multiply(this.transform);
     r.resetState();
