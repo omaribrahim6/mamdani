@@ -9,6 +9,7 @@ import { useCity } from '../lib/city';
 import { CATEGORIES, category, ICON, STATUS_SHORT, street } from '../lib/format';
 import { go } from '../lib/router';
 import { optimize, type Trip } from './route';
+import { registerMap, sendMamdani, useDivePhase } from '../mamdani/diveStore';
 import './map.css';
 
 // The city on Mapbox Standard (monochrome, 3D buildings, day/night with the theme). Issues are
@@ -55,6 +56,7 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
   const points = activity ?? city.activity;
   const pickRef = useRef(onPick);
   pickRef.current = onPick;
+  const dive = useDivePhase();
 
   // ── the map itself ──
   useEffect(() => {
@@ -145,6 +147,8 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
       setReady(true);
     });
     map.current = m;
+    // "Send Mamdani" drives this map: its camera, its pins, a 3D layer with him in it
+    const unregister = registerMap({ map: m, pins: markers.current, variant, box: box.current! });
 
     const themeWatch = new MutationObserver(() => {
       if (!m.isStyleLoaded()) return;
@@ -157,6 +161,7 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
     ro.observe(box.current!);
 
     return () => {
+      unregister();
       draw.current?.kill();
       themeWatch.disconnect();
       ro.disconnect();
@@ -349,6 +354,10 @@ export function CityMap({ issues, variant, heat = true, buildings = true, replay
           <Maximize2 size={16} />
         </button>
       )}
+      <button className="dive-btn" onClick={sendMamdani} disabled={dive !== 'idle'} title="Mamdani jumps into the map and goes to the potholes">
+        <img src="/mamdani-face.png" alt="" />
+        {dive === 'idle' ? 'Send Mamdani' : 'Mamdani’s out'}
+      </button>
       <div className="map-zoom">
         <button onClick={() => zoom(1)} aria-label="Zoom in">
           <Plus size={16} />

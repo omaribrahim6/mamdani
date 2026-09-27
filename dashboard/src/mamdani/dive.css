@@ -1,0 +1,128 @@
+/* "Send Mamdani": the leap layer over the whole dashboard, his speech bubble on the map, and the
+   pins he spots and flags. */
+
+.dive-leap {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 60;
+  pointer-events: none;
+  display: none;
+}
+
+.dive-bubble {
+  position: fixed;
+  z-index: 55;
+  max-width: 280px;
+  padding: 10px 14px;
+  border-radius: 18px 18px 18px 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-pop);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  pointer-events: none;
+  transform: translate(8px, -100%);
+  animation: dive-bubble 0.4s var(--ease) both;
+}
+
+@keyframes dive-bubble {
+  from {
+    opacity: 0;
+    transform: translate(8px, -80%) scale(0.9);
+  }
+}
+
+/* he's seen it: the pin jumps, rings out, and shows its card */
+.pin.spotted .pin-head {
+  animation: pin-spot 0.6s var(--ease) both;
+  box-shadow:
+    0 0 0 3px #fff,
+    0 0 0 6px var(--accent),
+    0 10px 24px -6px rgba(255, 106, 19, 0.7);
+}
+.pin.spotted .pin-head::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  animation: pin-pulse 1.1s var(--ease) infinite;
+}
+.pin.spotted .pin-card {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+@keyframes pin-spot {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  40% {
+    transform: translateY(-14px) scale(1.35);
+  }
+  100% {
+    transform: translateY(-4px) scale(1.2);
+  }
+}
+
+/* flagged: stamped with a check */
+.pin.flagged .pin-head {
+  background: var(--accent);
+}
+.pin.flagged .pin-head::after {
+  content: '✓';
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #12995a;
+  color: #fff;
+  font: 800 12px/1 var(--font);
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* the "Send Mamdani" button on the map */
+.dive-btn {
+  position: absolute;
+  z-index: 3;
+  right: 14px;
+  top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 8px 8px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-pop);
+  font: 600 13px/1 var(--font);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.25s var(--ease);
+}
+.dive-btn:hover {
+  transform: translateY(-1px);
+}
+.dive-btn img {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+}
+.dive-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.citymap.compact .dive-btn {
+  top: auto;
+  bottom: 14px;
+  right: 60px;
+}

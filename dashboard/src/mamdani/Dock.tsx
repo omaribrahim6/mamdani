@@ -9,6 +9,7 @@ import { go, usePage } from '../lib/router';
 import { speak, stopVoice, useVoice } from '../lib/voice';
 import { Markdown } from './markdown';
 import { MamdaniCanvas } from './MamdaniCanvas';
+import { useDivePhase } from './diveStore';
 import type { Behavior, Gesture } from '@mayor/portrait';
 import type { Expression } from '@mayor/face';
 import './dock.css';
@@ -76,10 +77,28 @@ export function Dock() {
   const scroller = useRef<HTMLDivElement>(null);
   const abort = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const dive = useDivePhase();
+  const away = dive !== 'idle';
 
   const behavior: Behavior = speaking || streaming ? 'talk' : busy ? 'think' : input ? 'listen' : 'watch';
   const last = msgs[msgs.length - 1];
   const expression: Expression = busy && !streaming ? 'THINKING' : last?.error ? 'CONFUSED' : last?.action?.state === 'done' ? 'CHEERFUL' : 'NEUTRAL';
+
+  // "Send Mamdani": he ducks out of the corner to leap into the map, and pops back when he's done
+  const wasAway = useRef(false);
+  useEffect(() => {
+    const el = launcher.current;
+    if (!el) return;
+    if (away && !wasAway.current) {
+      wasAway.current = true;
+      setOpen(false);
+      setBubble(null);
+      gsap.to(el, { yPercent: 110, xPercent: 20, duration: 0.3, ease: 'power2.in', delay: 0.25 });
+    } else if (!away && wasAway.current) {
+      wasAway.current = false;
+      gsap.fromTo(el, { yPercent: 100, xPercent: 60 }, { yPercent: 0, xPercent: 0, duration: 1.1, ease: 'elastic.out(1, 0.75)', delay: 0.2 });
+    }
+  }, [away]);
 
   // entrance: he pops up out of the corner
   useEffect(() => {
@@ -253,7 +272,7 @@ export function Dock() {
       >
         <span className="dock-sun" />
         <span className="dock-rings" />
-        {!open && <MamdaniCanvas className="dock-canvas" framing="bust" behavior={behavior} gesture={gesture} analyser={analyser} />}
+        {!open && !away && <MamdaniCanvas className="dock-canvas" framing="bust" behavior={behavior} gesture={gesture} analyser={analyser} />}
       </button>
       {/* outside the circle, so the quarter-circle clip can't cut it off */}
       <span className={`dock-label ${hover && !open ? 'on' : ''}`} aria-hidden>

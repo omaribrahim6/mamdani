@@ -11,7 +11,7 @@ import constructionUrl from '@models/mamdani-construction.mrig?url';
 // the two generated models: the suit, and the construction outfit (hard hat, hi-vis vest)
 const URLS: Record<ModelKind, string> = { suit: suitUrl, construction: constructionUrl };
 const loading: Partial<Record<ModelKind, Promise<void>>> = {};
-function loadModel(kind: ModelKind) {
+export function loadModel(kind: ModelKind) {
   return (loading[kind] ??= fetch(URLS[kind])
     .then((r) => r.arrayBuffer())
     .then((b) => registerMayorModel(kind, b))

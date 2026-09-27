@@ -170,7 +170,8 @@
 }
 
 .mapboxgl-marker:has(.pin:hover),
-.mapboxgl-marker:has(.pin.selected) {
+.mapboxgl-marker:has(.pin.selected),
+.mapboxgl-marker:has(.pin.spotted) {
   z-index: 5;
 }
 
