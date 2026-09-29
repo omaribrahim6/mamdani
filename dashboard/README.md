@@ -14,7 +14,7 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-`dashboard/.env` needs `VITE_MAPBOX_ACCESS_TOKEN`, `VITE_AUTH0_DOMAIN` and `VITE_AUTH0_CLIENT_ID`. `/api` is proxied to `http://localhost:3000`; set `API_PROXY` to use a deployment instead. A standalone deployment sets `VITE_API_URL` to the API's origin (the API sends CORS headers).
+`dashboard/.env` needs `VITE_MAPBOX_ACCESS_TOKEN`. `/api` is proxied to `http://localhost:3000`; set `API_PROXY` to use a deployment instead. A standalone deployment sets `VITE_API_URL` to the API's origin (the API sends CORS headers).
 
 ## Front door and routes
 
