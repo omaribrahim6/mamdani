@@ -56,7 +56,7 @@ The web feed is served by the dashboard app ([`dashboard/src/social/`](dashboard
 
 ## Architecture
 
-Reporting flow: the phone frontend sends photos, video, and audio to Gemini. Gemini responds as Mamdani and prepares structured issue data for TigerData Postgres. The government dashboard (Auth0 sign-in) and the public feed both read those records, and status changes flow back to the resident and the feed.
+Reporting flow: the phone frontend sends photos, video, and audio to Gemini. Gemini responds as Mamdani and prepares structured issue data for TigerData Postgres. The government dashboard (open, no sign-in) and the public feed both read those records, and status changes flow back to the resident and the feed.
 
 ```mermaid
 flowchart LR
@@ -68,7 +68,7 @@ flowchart LR
 
     subgraph Government["Mamdani Command (city dashboard)"]
         direction BT
-        Auth["Auth0<br/>Staff sign-in"] -->|Sign in| Dashboard["Queue · Map · Brief · Ask Mamdani"]
+        Front["Front door<br/>Public demo · no sign-in"] -->|View the portal| Dashboard["Queue · Map · Brief · Ask Mamdani"]
     end
 
     Phone -->|Input| AI
@@ -125,6 +125,6 @@ npm install
 npm run dev
 ```
 
-Open [localhost:5173](http://localhost:5173) and sign in with Auth0; the dashboard lives under `/admin/`, and the public feed is at [localhost:5173/feed](http://localhost:5173/feed) with no sign-in. It needs `VITE_MAPBOX_ACCESS_TOKEN`, `VITE_AUTH0_DOMAIN` and `VITE_AUTH0_CLIENT_ID` in `dashboard/.env`; see [the dashboard README](dashboard/README.md). To fill Tiger Data with a realistic month of Ottawa reports for a demo, run `npx tsx scripts/demo-city.ts` (`--remove` takes it out again, `--pulse` files one live report so you can watch the dashboard react).
+Open [localhost:5173](http://localhost:5173) and click **View the portal** — there's no sign-in; the dashboard lives under `/admin/`, and the public feed is at [localhost:5173/feed](http://localhost:5173/feed). It needs `VITE_MAPBOX_ACCESS_TOKEN` in `dashboard/.env`; see [the dashboard README](dashboard/README.md). To fill Tiger Data with a realistic month of Ottawa reports for a demo, run `npx tsx scripts/demo-city.ts` (`--remove` takes it out again, `--pulse` files one live report so you can watch the dashboard react).
 
 See [mobile setup](mobile/README.md) for the Expo app and [architecture and data flows](docs/architecture.md) for API contracts, database details, and workflow behavior.

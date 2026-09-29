@@ -242,6 +242,95 @@
   }
 }
 
+/* "AI is switched off" heads-up, shown before entering the read-only portal */
+.lg-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: var(--gap);
+  background: rgba(8, 10, 12, 0.55);
+  backdrop-filter: blur(6px);
+  animation: lg-fade 0.2s var(--ease);
+}
+
+.lg-modal-card {
+  position: relative;
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 28px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  animation: lg-pop 0.25s var(--ease);
+}
+
+.lg-modal-x {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  color: var(--ink-3);
+  transition: background 0.2s, color 0.2s;
+}
+
+.lg-modal-x:hover {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.lg-modal-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: #fff0e6;
+  color: #ff5a1f;
+}
+
+.lg-modal-card h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.lg-modal-card p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.lg-modal-card .lg-cta {
+  margin-top: 6px;
+  align-self: stretch;
+  justify-content: center;
+}
+
+@keyframes lg-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes lg-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
 @media (max-width: 900px) {
   .lg-card {
     grid-template-columns: 1fr;

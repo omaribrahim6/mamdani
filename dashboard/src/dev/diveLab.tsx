@@ -12,8 +12,8 @@ import { Dive } from '../mamdani/Dive';
 import { sendMamdani } from '../mamdani/diveStore';
 
 // Dev only (served by `npm run dev`, never built): the film set for the "Mamdani dives into the
-// map" video. The real dashboard without the Auth0 gate, on the live map; the dive starts on its
-// own once the map has settled (or from window.__go()). Open /dive.html.
+// map" video. The real dashboard on the live map; the dive starts on its own once the map has
+// settled (or from window.__go()). Open /dive.html.
 gsap.registerPlugin(useGSAP);
 gsap.defaults({ ease: 'power3.out' });
 // read the options before the URL moves to the map page

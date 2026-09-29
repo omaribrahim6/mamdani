@@ -1,26 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Sparkles, X } from 'lucide-react';
 import type { CityStats, Issue } from '@shared/types';
 import { api } from '../lib/api';
 import { category, hours, street } from '../lib/format';
+import { navigate } from '../lib/router';
 import { MamdaniCanvas } from '../mamdani/MamdaniCanvas';
 import type { Gesture } from '@mayor/portrait';
 import './login.css';
 
-// The front door: city staff sign in with Auth0 (the same tenant and app as the admin branch).
-// Everything behind it lives under /admin/. The live numbers and the top work order shown here
-// come from the same public API the residents' app uses.
+// The front door. There's no sign-in — this is a public demo, so clicking through opens the portal
+// read-only after a heads-up that the AI is switched off. Everything behind it lives under /admin/.
+// The live numbers and the top work order shown here come from the same public API the residents'
+// app uses.
 
-export function Login({ returnTo, error }: { returnTo: string; error?: string }) {
-  const { loginWithRedirect } = useAuth0();
+export function Login({ returnTo }: { returnTo: string }) {
   const root = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<CityStats | null>(null);
   const [top, setTop] = useState<Issue | null>(null);
   const [gesture, setGesture] = useState<{ g: Gesture; key: number } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(false);
 
   useEffect(() => {
     api.stats().then(setStats).catch(() => {});
@@ -39,10 +39,7 @@ export function Login({ returnTo, error }: { returnTo: string; error?: string })
     { scope: root },
   );
 
-  const signIn = () => {
-    setBusy(true);
-    void loginWithRedirect({ appState: { returnTo } });
-  };
+  const enter = () => navigate(returnTo);
 
   return (
     <div className="login" ref={root}>
@@ -68,14 +65,13 @@ export function Login({ returnTo, error }: { returnTo: string; error?: string })
               Residents point their phone and talk to Mamdani. You get the result here: deduplicated, ranked, mapped and costed work orders, a
               morning brief, and an assistant that knows the whole record.
             </p>
-            <button className="lg-cta lg-anim" onClick={signIn} disabled={busy} onMouseEnter={() => setGesture({ g: 'reassure', key: Date.now() })}>
-              {busy ? 'Opening Auth0…' : 'Sign in to Command'} <ArrowRight size={18} />
+            <button className="lg-cta lg-anim" onClick={() => setNotice(true)} onMouseEnter={() => setGesture({ g: 'reassure', key: Date.now() })}>
+              View the portal <ArrowRight size={18} />
             </button>
-            {error && <p className="lg-error lg-anim">{error}</p>}
           </div>
 
           <footer className="lg-foot lg-anim">
-            <ShieldCheck size={15} /> Secured by Auth0 · city staff accounts only
+            <Sparkles size={15} /> Public demo · AI switched off · open to look around
           </footer>
         </section>
 
@@ -119,16 +115,27 @@ export function Login({ returnTo, error }: { returnTo: string; error?: string })
           </div>
         </section>
       </main>
-    </div>
-  );
-}
 
-/** Full-screen state while Auth0 checks the session or finishes a redirect. */
-export function Checking({ label = 'Checking your credentials…' }: { label?: string }) {
-  return (
-    <div className="login lg-checking">
-      <img src="/mamdani-face.png" alt="" />
-      <p>{label}</p>
+      {notice && (
+        <div className="lg-modal" role="dialog" aria-modal="true" aria-labelledby="lg-modal-title" onClick={() => setNotice(false)}>
+          <div className="lg-modal-card" onClick={(e) => e.stopPropagation()}>
+            <button className="lg-modal-x" aria-label="Close" onClick={() => setNotice(false)}>
+              <X size={18} />
+            </button>
+            <div className="lg-modal-icon">
+              <Sparkles size={22} />
+            </div>
+            <h2 id="lg-modal-title">We&apos;ve switched the AI off</h2>
+            <p>
+              Mamdani&apos;s live analysis and assistant are turned off for this public demo, so nothing here talks to the AI. Everything
+              else is real — go ahead and look around the portal to see the project.
+            </p>
+            <button className="lg-cta" onClick={enter}>
+              Continue to the portal <ArrowRight size={18} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

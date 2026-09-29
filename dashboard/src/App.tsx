@@ -1,8 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { CityProvider } from './lib/city';
-import { useAuth0 } from '@auth0/auth0-react';
-import { isAdmin, navigate, pathOf, usePage, usePath } from './lib/router';
-import { Checking, Login } from './auth/Login';
+import { isAdmin, pathOf, usePage, usePath } from './lib/router';
+import { Login } from './auth/Login';
 import { Feed } from './social/Feed';
 import { Sidebar, Topbar } from './components/Shell';
 import { TipLayer } from './components/ui';
@@ -17,38 +16,15 @@ const QueuePage = lazy(() => import('./pages/Queue'));
 const AnalyticsPage = lazy(() => import('./pages/Analytics'));
 const BriefPage = lazy(() => import('./pages/Brief'));
 
-// "/" is the sign-in page; the dashboard lives under /admin/. Signed in and on "/"? Straight to
-// /admin/. Not signed in and on an /admin/ link? Back to "/", and after signing in you land on
-// the page you asked for.
+// "/" is the front door; the dashboard lives under /admin/. There's no sign-in — clicking through
+// on "/" opens the portal read-only (AI is off), and any /admin/ link goes straight to Command.
 export function App() {
-  const { isLoading, isAuthenticated, error } = useAuth0();
   const path = usePath();
   const admin = isAdmin(path);
 
-  useEffect(() => {
-    if (isLoading || path.startsWith('/feed') || location.hostname.startsWith('mamdani-social')) return;
-    if (isAuthenticated && !admin) navigate(pathOf('command'), true);
-    if (!isAuthenticated && path !== '/') {
-      if (admin) sessionStorage.setItem('mamdani-return', path);
-      navigate('/', true);
-    }
-  }, [isLoading, isAuthenticated, admin, path]);
-
-  // Mamdani Social: public, no sign-in — /feed here, or the whole site on its own domain
+  // Mamdani Social: public — /feed here, or the whole site on its own domain
   if (path.startsWith('/feed') || location.hostname.startsWith('mamdani-social')) return <Feed />;
-  if (isLoading) return <Checking />;
-  if (!isAuthenticated) {
-    if (path !== '/') return <Checking label="Taking you to sign in…" />;
-    const returnTo = (() => {
-      try {
-        return sessionStorage.getItem('mamdani-return') ?? pathOf('command');
-      } catch {
-        return pathOf('command');
-      }
-    })();
-    return <Login returnTo={returnTo} error={error ? `Sign-in didn’t complete: ${error.message}` : undefined} />;
-  }
-  if (!admin) return <Checking label="Opening Command…" />;
+  if (!admin) return <Login returnTo={pathOf('command')} />;
   return <Dashboard />;
 }
 
